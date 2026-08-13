@@ -5,30 +5,38 @@ struct ActivityRingView: View {
     let accentColor: Color
     let primaryLabel: String
     let secondaryLabel: String
+    let lineWidth: CGFloat
 
-    init(progress: Double, accentColor: Color = .accentColor, primaryLabel: String, secondaryLabel: String) {
+    init(
+        progress: Double,
+        accentColor: Color = .accentColor,
+        primaryLabel: String,
+        secondaryLabel: String,
+        lineWidth: CGFloat = 14
+    ) {
         self.progress = min(max(progress, 0), 1)
         self.accentColor = accentColor
         self.primaryLabel = primaryLabel
         self.secondaryLabel = secondaryLabel
+        self.lineWidth = lineWidth
     }
 
     var body: some View {
         ZStack {
             Circle()
-                .stroke(accentColor.opacity(0.14), style: StrokeStyle(lineWidth: ringLineWidth, lineCap: .round))
+                .stroke(accentColor.opacity(0.14), style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
 
             Circle()
                 .trim(from: 0, to: progress)
-                .stroke(accentColor, style: StrokeStyle(lineWidth: ringLineWidth, lineCap: .round, lineJoin: .round))
+                .stroke(accentColor, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round))
                 .rotationEffect(.degrees(-90))
                 .animation(.easeInOut(duration: 0.25), value: progress)
 
             VStack(spacing: 4) {
                 Text(primaryLabel)
-                    .font(.headline.weight(.semibold))
+                    .font(TimeBiteTypography.font(.headline, weight: .semibold))
                 Text(secondaryLabel)
-                    .font(.caption)
+                    .font(TimeBiteTypography.font(.caption))
                     .foregroundStyle(.secondary)
             }
             .multilineTextAlignment(.center)
@@ -39,7 +47,4 @@ struct ActivityRingView: View {
         .accessibilityValue("\(Int(progress * 100)) percent")
     }
 
-    private var ringLineWidth: CGFloat {
-        14
-    }
 }

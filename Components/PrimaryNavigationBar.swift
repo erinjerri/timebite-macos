@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct PrimaryNavigationBar: View {
+    @Environment(\.colorScheme) private var colorScheme
     let title: String
     let subtitle: String
 
@@ -8,10 +9,11 @@ struct PrimaryNavigationBar: View {
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(subtitle.uppercased())
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .font(TimeBiteTypography.font(.caption, weight: .semibold))
+                    .foregroundStyle(TimeBitePalette.sky)
                 Text(title)
-                    .font(.title.weight(.semibold))
+                    .font(TimeBiteTypography.font(.title, weight: .semibold))
+                    .foregroundStyle(TimeBitePalette.primaryText(for: colorScheme))
             }
 
             Spacer(minLength: 16)

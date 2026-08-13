@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct SidebarView: View {
+    @Environment(\.colorScheme) private var colorScheme
     @ObservedObject var navigationState: AppNavigationState
 
     var body: some View {
@@ -41,13 +42,14 @@ struct SidebarView: View {
             Divider()
         }
         .frame(minHeight: 520, alignment: .top)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .foregroundStyle(TimeBitePalette.primaryText(for: colorScheme))
+        .background(TimeBitePalette.surface(for: colorScheme))
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("TimeBite")
-                .font(.headline.weight(.semibold))
+                .font(TimeBiteTypography.font(.headline, weight: .semibold))
             AppSpaceSwitcher(selectedSpace: Binding(
                 get: { navigationState.selectedAppSpace },
                 set: { navigationState.select($0) }
@@ -59,12 +61,12 @@ struct SidebarView: View {
         title: String,
         items: Item.AllCases,
         action: @escaping (Item) -> Void,
-        selected: @escaping () -> String
+        selected: @escaping () -> Item.ID
     ) -> some View where Item.AllCases: RandomAccessCollection, Item.AllCases.Element == Item {
         VStack(alignment: .leading, spacing: 8) {
             Text(title.uppercased())
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
+                .font(TimeBiteTypography.font(.caption, weight: .semibold))
+                .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
                 .padding(.horizontal, 8)
 
             ForEach(items) { item in
@@ -78,13 +80,13 @@ struct SidebarView: View {
                         Text(item.description)
                         Spacer(minLength: 0)
                     }
-                    .font(.system(size: 13.5, weight: isSelected ? .semibold : .regular))
+                    .font(TimeBiteTypography.font(size: 13.5, weight: isSelected ? .semibold : .regular))
                     .padding(.vertical, 9)
                     .padding(.horizontal, 12)
-                    .background(isSelected ? Color.accentColor.opacity(0.12) : Color.clear, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .background(isSelected ? TimeBitePalette.sky.opacity(0.13) : Color.clear, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(isSelected ? .primary : .secondary)
+                .foregroundStyle(isSelected ? TimeBitePalette.primaryText(for: colorScheme) : TimeBitePalette.secondaryText(for: colorScheme))
             }
         }
     }

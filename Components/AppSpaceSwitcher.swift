@@ -10,5 +10,7 @@ struct AppSpaceSwitcher: View {
             }
         }
         .pickerStyle(.segmented)
+        .labelsHidden()
+        .font(TimeBiteTypography.font(.callout, weight: .medium))
     }
 }

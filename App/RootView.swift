@@ -1,19 +1,19 @@
 import SwiftUI
 
 struct RootView: View {
+    @Environment(\.colorScheme) private var colorScheme
     @StateObject private var navigationState = AppNavigationState()
 
     var body: some View {
-        NavigationSplitView {
-            SidebarView(navigationState: navigationState)
-                .navigationSplitViewColumnWidth(min: 280, ideal: 320, max: 360)
-        } detail: {
+        VStack(spacing: 0) {
+            WorkspaceTabBar(navigationState: navigationState)
+
             destinationView
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .background(Color(nsColor: .windowBackgroundColor))
+                .background(TimeBitePalette.background(for: colorScheme))
         }
-        .navigationSplitViewStyle(.balanced)
-        .toolbar(removing: .sidebarToggle)
+        .font(TimeBiteTypography.font(.body))
+        .tint(TimeBitePalette.sky)
     }
 
     @ViewBuilder
@@ -26,11 +26,11 @@ struct RootView: View {
         case .timeBite(.goals):
             PlaceholderView(title: "Goals", subtitle: "TimeBite", symbol: "target")
         case .timeBite(.plan):
-            PlaceholderView(title: "Plan", subtitle: "TimeBite", symbol: "calendar")
+            PlanView()
         case .timeBite(.track):
-            PlaceholderView(title: "Track", subtitle: "TimeBite", symbol: "chart.line.uptrend.xyaxis")
+            TrackView()
         case .timeBite(.dashboard):
-            PlaceholderView(title: "Dashboard", subtitle: "TimeBite", symbol: "rectangle.grid.2x2")
+            DashboardView()
         case .creatingYourReality(.create):
             PlaceholderView(title: "Create", subtitle: "Creating Your Reality", symbol: "sparkles")
         case .creatingYourReality(.discover):

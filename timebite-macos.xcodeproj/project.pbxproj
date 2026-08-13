@@ -27,15 +27,9 @@
 		DC76CA4D302E26C00059D39A /* timebite-macos.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "timebite-macos.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		DC76CA5C302E26C30059D39A /* timebite-macosTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "timebite-macosTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		DC76CA66302E26C30059D39A /* timebite-macosUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "timebite-macosUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
-		DC76CA81302E2CBF0059D39A /* timebite-macos.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = "timebite-macos.xcodeproj"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		DC76CA4F302E26C00059D39A /*  */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			name = "";
-			sourceTree = "<group>";
-		};
 		DC76CA5F302E26C30059D39A /* timebite-macosTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = "timebite-macosTests";
@@ -44,6 +38,31 @@
 		DC76CA69302E26C30059D39A /* timebite-macosUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = "timebite-macosUITests";
+			sourceTree = "<group>";
+		};
+		DC76CA82302E2D00059D39A /* App */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = App;
+			sourceTree = "<group>";
+		};
+		DC76CA82302E2D01059D39A /* Components */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Components;
+			sourceTree = "<group>";
+		};
+		DC76CA82302E2D02059D39A /* Navigation */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Navigation;
+			sourceTree = "<group>";
+		};
+		DC76CA82302E2D03059D39A /* Views */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Views;
+			sourceTree = "<group>";
+		};
+		DC76CA82302E2D05059D39A /* Shared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Shared;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -70,7 +89,11 @@
 		DC76CA44302E26C00059D39A = {
 			isa = PBXGroup;
 			children = (
-				DC76CA4F302E26C00059D39A /*  */,
+				DC76CA82302E2D00059D39A /* App */,
+				DC76CA82302E2D01059D39A /* Components */,
+				DC76CA82302E2D02059D39A /* Navigation */,
+				DC76CA82302E2D03059D39A /* Views */,
+				DC76CA82302E2D05059D39A /* Shared */,
 				DC76CA5F302E26C30059D39A /* timebite-macosTests */,
 				DC76CA69302E26C30059D39A /* timebite-macosUITests */,
 				DC76CA4E302E26C00059D39A /* Products */,
@@ -84,11 +107,6 @@
 				DC76CA5C302E26C30059D39A /* timebite-macosTests.xctest */,
 				DC76CA66302E26C30059D39A /* timebite-macosUITests.xctest */,
 			);
-			name = Products;
-			sourceTree = "<group>";
-		};
-		DC76CA82302E2CBF0059D39A /* Products */ = {
-			isa = PBXGroup;
 			name = Products;
 			sourceTree = "<group>";
 		};
@@ -106,7 +124,11 @@
 			buildRules = (
 			);
 			fileSystemSynchronizedGroups = (
-				DC76CA4F302E26C00059D39A /*  */,
+				DC76CA82302E2D00059D39A /* App */,
+				DC76CA82302E2D01059D39A /* Components */,
+				DC76CA82302E2D02059D39A /* Navigation */,
+				DC76CA82302E2D03059D39A /* Views */,
+				DC76CA82302E2D05059D39A /* Shared */,
 			);
 			name = "timebite-macos";
 			productName = "timebite-macos";
@@ -186,16 +208,9 @@
 				Base,
 			);
 			mainGroup = DC76CA44302E26C00059D39A;
-			minimizedProjectReferenceProxies = 1;
 			preferredProjectObjectVersion = 77;
 			productRefGroup = DC76CA4E302E26C00059D39A /* Products */;
 			projectDirPath = "";
-			projectReferences = (
-				{
-					ProductGroup = DC76CA82302E2CBF0059D39A /* Products */;
-					ProjectRef = DC76CA81302E2CBF0059D39A /* timebite-macos.xcodeproj */;
-				},
-			);
 			projectRoot = "";
 			targets = (
 				DC76CA4C302E26C00059D39A /* timebite-macos */,
@@ -378,8 +393,7 @@
 		DC76CA6F302E26C30059D39A /* Debug configuration for PBXNativeTarget "timebite-macos" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "App/timebite-macos.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
@@ -389,6 +403,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "TimeBite displays your existing calendar events beside planned focus blocks so you can schedule without conflicts.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -410,8 +425,7 @@
 		DC76CA70302E26C30059D39A /* Release configuration for PBXNativeTarget "timebite-macos" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "App/timebite-macos.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
@@ -421,6 +435,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "TimeBite displays your existing calendar events beside planned focus blocks so you can schedule without conflicts.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

@@ -1,3 +1,4 @@
+#if canImport(XCTest)
 import XCTest
 @testable import timebite_macos
 
@@ -27,3 +28,4 @@ final class ActivityProgressCalculatorTests: XCTestCase {
         XCTAssertEqual(result.rawCompletionRatio, 1.25)
     }
 }
+#endif
