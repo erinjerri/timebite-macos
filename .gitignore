@@ -1,0 +1,28 @@
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+*.xccheckout
+*.moved-aside
+
+# User-specific Xcode project files
+xcuserdata/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+
+# Swift Package Manager
+.build/
+Packages/
+Package.resolved
+
+# macOS
+.DS_Store
+
+# Swift / Xcode logs
+*.swiftpm
+*.swiftsourceinfo
+*.playgroundbook
+
+# Local environment files
+.env
+.env.*

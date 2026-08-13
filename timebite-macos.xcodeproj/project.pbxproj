@@ -1,0 +1,549 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 110;
+	objects = {
+
+/* Begin PBXContainerItemProxy section */
+		DC76CA5D302E26C30059D39A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = DC76CA45302E26C00059D39A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DC76CA4C302E26C00059D39A;
+			remoteInfo = "timebite-macos";
+		};
+		DC76CA67302E26C30059D39A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = DC76CA45302E26C00059D39A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DC76CA4C302E26C00059D39A;
+			remoteInfo = "timebite-macos";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		DC76CA4D302E26C00059D39A /* timebite-macos.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "timebite-macos.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		DC76CA5C302E26C30059D39A /* timebite-macosTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "timebite-macosTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		DC76CA66302E26C30059D39A /* timebite-macosUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "timebite-macosUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		DC76CA4F302E26C00059D39A /* timebite-macos */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "timebite-macos";
+			sourceTree = "<group>";
+		};
+		DC76CA5F302E26C30059D39A /* timebite-macosTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "timebite-macosTests";
+			sourceTree = "<group>";
+		};
+		DC76CA69302E26C30059D39A /* timebite-macosUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "timebite-macosUITests";
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		DC76CA4A302E26C00059D39A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+			);
+		};
+		DC76CA59302E26C30059D39A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+			);
+		};
+		DC76CA63302E26C30059D39A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+			);
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		DC76CA44302E26C00059D39A = {
+			isa = PBXGroup;
+			children = (
+				DC76CA4F302E26C00059D39A /* timebite-macos */,
+				DC76CA5F302E26C30059D39A /* timebite-macosTests */,
+				DC76CA69302E26C30059D39A /* timebite-macosUITests */,
+				DC76CA4E302E26C00059D39A /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		DC76CA4E302E26C00059D39A /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				DC76CA4D302E26C00059D39A /* timebite-macos.app */,
+				DC76CA5C302E26C30059D39A /* timebite-macosTests.xctest */,
+				DC76CA66302E26C30059D39A /* timebite-macosUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		DC76CA4C302E26C00059D39A /* timebite-macos */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DC76CA6E302E26C30059D39A /* Build configuration list for PBXNativeTarget "timebite-macos" */;
+			buildPhases = (
+				DC76CA49302E26C00059D39A /* Sources */,
+				DC76CA4A302E26C00059D39A /* Frameworks */,
+				DC76CA4B302E26C00059D39A /* Resources */,
+			);
+			buildRules = (
+			);
+			fileSystemSynchronizedGroups = (
+				DC76CA4F302E26C00059D39A /* timebite-macos */,
+			);
+			name = "timebite-macos";
+			productName = "timebite-macos";
+			productReference = DC76CA4D302E26C00059D39A /* timebite-macos.app */;
+			productType = "com.apple.product-type.application";
+		};
+		DC76CA5B302E26C30059D39A /* timebite-macosTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DC76CA71302E26C30059D39A /* Build configuration list for PBXNativeTarget "timebite-macosTests" */;
+			buildPhases = (
+				DC76CA58302E26C30059D39A /* Sources */,
+				DC76CA59302E26C30059D39A /* Frameworks */,
+				DC76CA5A302E26C30059D39A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				DC76CA5E302E26C30059D39A /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				DC76CA5F302E26C30059D39A /* timebite-macosTests */,
+			);
+			name = "timebite-macosTests";
+			productName = "timebite-macosTests";
+			productReference = DC76CA5C302E26C30059D39A /* timebite-macosTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		DC76CA65302E26C30059D39A /* timebite-macosUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DC76CA74302E26C30059D39A /* Build configuration list for PBXNativeTarget "timebite-macosUITests" */;
+			buildPhases = (
+				DC76CA62302E26C30059D39A /* Sources */,
+				DC76CA63302E26C30059D39A /* Frameworks */,
+				DC76CA64302E26C30059D39A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				DC76CA68302E26C30059D39A /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				DC76CA69302E26C30059D39A /* timebite-macosUITests */,
+			);
+			name = "timebite-macosUITests";
+			productName = "timebite-macosUITests";
+			productReference = DC76CA66302E26C30059D39A /* timebite-macosUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		DC76CA45302E26C00059D39A /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2700;
+				LastUpgradeCheck = 2700;
+				TargetAttributes = {
+					DC76CA4C302E26C00059D39A = {
+						CreatedOnToolsVersion = 27.0;
+					};
+					DC76CA5B302E26C30059D39A = {
+						CreatedOnToolsVersion = 27.0;
+						TestTargetID = DC76CA4C302E26C00059D39A;
+					};
+					DC76CA65302E26C30059D39A = {
+						CreatedOnToolsVersion = 27.0;
+						TestTargetID = DC76CA4C302E26C00059D39A;
+					};
+				};
+			};
+			buildConfigurationList = DC76CA48302E26C00059D39A /* Build configuration list for PBXProject "timebite-macos" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = DC76CA44302E26C00059D39A;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = DC76CA4E302E26C00059D39A /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				DC76CA4C302E26C00059D39A /* timebite-macos */,
+				DC76CA5B302E26C30059D39A /* timebite-macosTests */,
+				DC76CA65302E26C30059D39A /* timebite-macosUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		DC76CA4B302E26C00059D39A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
+		DC76CA5A302E26C30059D39A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
+		DC76CA64302E26C30059D39A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		DC76CA49302E26C00059D39A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
+		DC76CA58302E26C30059D39A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
+		DC76CA62302E26C30059D39A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		DC76CA5E302E26C30059D39A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = DC76CA4C302E26C00059D39A /* timebite-macos */;
+			targetProxy = DC76CA5D302E26C30059D39A /* PBXContainerItemProxy */;
+		};
+		DC76CA68302E26C30059D39A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = DC76CA4C302E26C00059D39A /* timebite-macos */;
+			targetProxy = DC76CA67302E26C30059D39A /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		DC76CA6C302E26C30059D39A /* Debug configuration for PBXProject "timebite-macos" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = DHFA4423Z8;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.5;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		DC76CA6D302E26C30059D39A /* Release configuration for PBXProject "timebite-macos" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = DHFA4423Z8;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.5;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		DC76CA6F302E26C30059D39A /* Debug configuration for PBXNativeTarget "timebite-macos" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DHFA4423Z8;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.erinjerri.timebite-macos";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		DC76CA70302E26C30059D39A /* Release configuration for PBXNativeTarget "timebite-macos" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DHFA4423Z8;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.erinjerri.timebite-macos";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		DC76CA72302E26C30059D39A /* Debug configuration for PBXNativeTarget "timebite-macosTests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DHFA4423Z8;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.5;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.erinjerri.timebite-macosTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/timebite-macos.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/timebite-macos";
+			};
+			name = Debug;
+		};
+		DC76CA73302E26C30059D39A /* Release configuration for PBXNativeTarget "timebite-macosTests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DHFA4423Z8;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.5;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.erinjerri.timebite-macosTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/timebite-macos.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/timebite-macos";
+			};
+			name = Release;
+		};
+		DC76CA75302E26C30059D39A /* Debug configuration for PBXNativeTarget "timebite-macosUITests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DHFA4423Z8;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.erinjerri.timebite-macosUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = "timebite-macos";
+			};
+			name = Debug;
+		};
+		DC76CA76302E26C30059D39A /* Release configuration for PBXNativeTarget "timebite-macosUITests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DHFA4423Z8;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.erinjerri.timebite-macosUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = "timebite-macos";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		DC76CA48302E26C00059D39A /* Build configuration list for PBXProject "timebite-macos" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DC76CA6C302E26C30059D39A /* Debug configuration for PBXProject "timebite-macos" */,
+				DC76CA6D302E26C30059D39A /* Release configuration for PBXProject "timebite-macos" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		DC76CA6E302E26C30059D39A /* Build configuration list for PBXNativeTarget "timebite-macos" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DC76CA6F302E26C30059D39A /* Debug configuration for PBXNativeTarget "timebite-macos" */,
+				DC76CA70302E26C30059D39A /* Release configuration for PBXNativeTarget "timebite-macos" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		DC76CA71302E26C30059D39A /* Build configuration list for PBXNativeTarget "timebite-macosTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DC76CA72302E26C30059D39A /* Debug configuration for PBXNativeTarget "timebite-macosTests" */,
+				DC76CA73302E26C30059D39A /* Release configuration for PBXNativeTarget "timebite-macosTests" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		DC76CA74302E26C30059D39A /* Build configuration list for PBXNativeTarget "timebite-macosUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DC76CA75302E26C30059D39A /* Debug configuration for PBXNativeTarget "timebite-macosUITests" */,
+				DC76CA76302E26C30059D39A /* Release configuration for PBXNativeTarget "timebite-macosUITests" */,
+			);
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = DC76CA45302E26C00059D39A /* Project object */;
+	validationLevel = 1;
+}
