@@ -63,16 +63,26 @@ private struct LiveActivityRingCard: View {
 
     var body: some View {
         CardContainer(title: "Live Activity Ring", systemImage: "circle.dotted.circle") {
-            ProgressView(value: progress) {
-                Text("Today")
-            } currentValueLabel: {
-                Text("\(Int(progress * 100))%")
-            }
-            .progressViewStyle(.linear)
+            HStack(alignment: .center, spacing: 18) {
+                ActivityRingView(
+                    progress: progress,
+                    primaryLabel: "\(Int(progress * 100))%",
+                    secondaryLabel: "Today"
+                )
+                .frame(width: 120, height: 120)
 
-            Text("Track the current day without overwhelming the workspace.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Track the current day without overwhelming the workspace.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+
+                    Text("The ring is now driven by normalized progress only.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer(minLength: 0)
+            }
         }
     }
 }

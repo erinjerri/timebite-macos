@@ -3,18 +3,21 @@ import SwiftUI
 
 @MainActor
 final class AppNavigationState: ObservableObject {
-    @AppStorage("selectedAppSpace") private var storedSpaceRawValue: String = AppSpace.timeBite.rawValue
+    private let selectedAppSpaceKey = "selectedAppSpace"
+    private let defaults: UserDefaults
+
     @Published var selectedAppSpace: AppSpace {
         didSet {
-            storedSpaceRawValue = selectedAppSpace.rawValue
+            defaults.set(selectedAppSpace.rawValue, forKey: selectedAppSpaceKey)
         }
     }
     @Published var selectedTimeBiteDestination: TimeBiteDestination = .now
     @Published var selectedCYRDestination: CYRDestination = .create
 
-    init() {
-        selectedAppSpace = AppSpace(rawValue: storedSpaceRawValue) ?? .timeBite
-        storedSpaceRawValue = selectedAppSpace.rawValue
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        selectedAppSpace = AppSpace(rawValue: defaults.string(forKey: selectedAppSpaceKey) ?? AppSpace.timeBite.rawValue) ?? .timeBite
+        defaults.set(selectedAppSpace.rawValue, forKey: selectedAppSpaceKey)
     }
 
     var selectedDestination: AppDestination {
