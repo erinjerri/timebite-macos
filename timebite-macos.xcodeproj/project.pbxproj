@@ -27,12 +27,13 @@
 		DC76CA4D302E26C00059D39A /* timebite-macos.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "timebite-macos.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		DC76CA5C302E26C30059D39A /* timebite-macosTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "timebite-macosTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		DC76CA66302E26C30059D39A /* timebite-macosUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "timebite-macosUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		DC76CA81302E2CBF0059D39A /* timebite-macos.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = "timebite-macos.xcodeproj"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		DC76CA4F302E26C00059D39A /* timebite-macos */ = {
+		DC76CA4F302E26C00059D39A /*  */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "timebite-macos";
+			name = "";
 			sourceTree = "<group>";
 		};
 		DC76CA5F302E26C30059D39A /* timebite-macosTests */ = {
@@ -69,7 +70,7 @@
 		DC76CA44302E26C00059D39A = {
 			isa = PBXGroup;
 			children = (
-				DC76CA4F302E26C00059D39A /* timebite-macos */,
+				DC76CA4F302E26C00059D39A /*  */,
 				DC76CA5F302E26C30059D39A /* timebite-macosTests */,
 				DC76CA69302E26C30059D39A /* timebite-macosUITests */,
 				DC76CA4E302E26C00059D39A /* Products */,
@@ -83,6 +84,11 @@
 				DC76CA5C302E26C30059D39A /* timebite-macosTests.xctest */,
 				DC76CA66302E26C30059D39A /* timebite-macosUITests.xctest */,
 			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		DC76CA82302E2CBF0059D39A /* Products */ = {
+			isa = PBXGroup;
 			name = Products;
 			sourceTree = "<group>";
 		};
@@ -100,7 +106,7 @@
 			buildRules = (
 			);
 			fileSystemSynchronizedGroups = (
-				DC76CA4F302E26C00059D39A /* timebite-macos */,
+				DC76CA4F302E26C00059D39A /*  */,
 			);
 			name = "timebite-macos";
 			productName = "timebite-macos";
@@ -184,6 +190,12 @@
 			preferredProjectObjectVersion = 77;
 			productRefGroup = DC76CA4E302E26C00059D39A /* Products */;
 			projectDirPath = "";
+			projectReferences = (
+				{
+					ProductGroup = DC76CA82302E2CBF0059D39A /* Products */;
+					ProjectRef = DC76CA81302E2CBF0059D39A /* timebite-macos.xcodeproj */;
+				},
+			);
 			projectRoot = "";
 			targets = (
 				DC76CA4C302E26C00059D39A /* timebite-macos */,
