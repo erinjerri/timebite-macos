@@ -30,14 +30,14 @@ enum TimeBiteTypography {
         case .title: 28
         case .title2: 22
         case .title3: 20
-        case .headline: 13
-        case .subheadline: 12
-        case .body: 13
-        case .callout: 12
-        case .footnote: 11
-        case .caption: 11
-        case .caption2: 10
-        @unknown default: 13
+        case .headline: 14
+        case .subheadline: 13
+        case .body: 14
+        case .callout: 13
+        case .footnote: 12
+        case .caption: 12
+        case .caption2: 11
+        @unknown default: 14
         }
     }
 }

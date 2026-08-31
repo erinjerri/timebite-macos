@@ -21,6 +21,46 @@ enum ActionPriority: String, CaseIterable, Codable, Sendable {
     case high
 }
 
+enum LifeArea: String, CaseIterable, Codable, Identifiable, Sendable {
+    case health
+    case work
+    case home
+    case relationships
+    case finance
+    case learning
+    case play
+    case errands
+    case other
+
+    var id: UUID {
+        switch self {
+        case .health: return UUID(uuidString: "11111111-1111-4111-8111-111111111111")!
+        case .work: return UUID(uuidString: "22222222-2222-4222-8222-222222222222")!
+        case .home: return UUID(uuidString: "33333333-3333-4333-8333-333333333333")!
+        case .relationships: return UUID(uuidString: "44444444-4444-4444-8444-444444444444")!
+        case .finance: return UUID(uuidString: "55555555-5555-4555-8555-555555555555")!
+        case .learning: return UUID(uuidString: "66666666-6666-4666-8666-666666666666")!
+        case .play: return UUID(uuidString: "77777777-7777-4777-8777-777777777777")!
+        case .errands: return UUID(uuidString: "88888888-8888-4888-8888-888888888888")!
+        case .other: return UUID(uuidString: "99999999-9999-4999-8999-999999999999")!
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .health: return "Health"
+        case .work: return "Work"
+        case .home: return "Home"
+        case .relationships: return "Relationships"
+        case .finance: return "Finance"
+        case .learning: return "Learning"
+        case .play: return "Play"
+        case .errands: return "Errands"
+        case .other: return "Other"
+        }
+    }
+}
+
 struct Goal: Identifiable, Codable, Hashable, Sendable {
     var id: UUID
     var title: String
@@ -129,6 +169,7 @@ struct Action: Identifiable, Codable, Hashable, Sendable {
     var milestoneID: UUID?
     var projectID: UUID?
     var lifeAreaID: UUID?
+    var workLabel: String?
     var title: String
     var notes: String
     var estimatedDuration: TimeInterval?
@@ -145,6 +186,7 @@ struct Action: Identifiable, Codable, Hashable, Sendable {
         milestoneID: UUID? = nil,
         projectID: UUID? = nil,
         lifeAreaID: UUID? = nil,
+        workLabel: String? = nil,
         title: String,
         notes: String = "",
         estimatedDuration: TimeInterval? = nil,
@@ -160,6 +202,7 @@ struct Action: Identifiable, Codable, Hashable, Sendable {
         self.milestoneID = milestoneID
         self.projectID = projectID
         self.lifeAreaID = lifeAreaID
+        self.workLabel = workLabel
         self.title = title
         self.notes = notes
         self.estimatedDuration = estimatedDuration.map { max(0, $0) }

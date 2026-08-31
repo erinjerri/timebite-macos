@@ -15,7 +15,9 @@ It is intentionally lightweight: enough to keep the app consistent, not a full b
 
 Primary accent colors:
 
-- `sky` for default selection, emphasis, and primary chart/ring highlights
+- `blue` for the main live activity ring and primary live-state emphasis
+- `green` for daily progress and completion-oriented emphasis
+- `sky` for default selection, emphasis, and secondary chart/ring highlights
 - `teal` for secondary action states and supportive emphasis
 - `violet` for tertiary or thematic accents
 - `gold` for warnings, progress, and warm highlights
@@ -41,6 +43,7 @@ Use `League Spartan` through `TimeBiteTypography` for the app shell.
 Rules:
 
 - use the shared typography helper instead of ad hoc font sizes
+- keep copy a touch larger than the previous baseline; body and supporting text should read closer to 10–12 pt equivalent rather than 8 pt
 - reserve stronger weights for titles and selected states
 - keep captions small and tracked for section labels
 
@@ -93,5 +96,6 @@ Calendar visual rules:
 
 - Use the shared palette from `Shared/Presentation/TimeBitePalette.swift`
 - Keep new color values centralized
+- Live activity should use blue; daily progress should use green
 - When changing highlight colors, update shell chrome and content surfaces together
 - Prefer consistency across Plan, Dashboard, Track, and Now rather than per-screen exceptions

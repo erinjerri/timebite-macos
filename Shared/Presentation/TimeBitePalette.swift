@@ -1,6 +1,8 @@
 import SwiftUI
 
 enum TimeBitePalette {
+    static let blue = Color(red: 0.41, green: 0.68, blue: 0.98)
+    static let green = Color(red: 0.43, green: 0.78, blue: 0.58)
     static let teal = Color(red: 0.59, green: 0.84, blue: 0.80)
     static let sky = Color(red: 0.66, green: 0.82, blue: 0.98)
     static let violet = Color(red: 0.80, green: 0.70, blue: 0.97)

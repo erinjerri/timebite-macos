@@ -3,6 +3,7 @@ import SwiftUI
 struct CalendarActionSidebar: View {
     @ObservedObject var model: CalendarViewModel
     @State private var showingNewAction = false
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -16,6 +17,8 @@ struct CalendarActionSidebar: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
+                Button("Paste List / Brain Dump") { model.showingBulkCapture = true }
+                    .buttonStyle(.bordered)
                 Button { showingNewAction = true } label: { Image(systemName: "plus") }
                     .buttonStyle(.borderless)
                     .help("New action")
@@ -45,13 +48,174 @@ struct CalendarActionSidebar: View {
                     }
                 }
             }
+
+            if !model.suggestedPlanningBlocks.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Suggested blocks")
+                        .font(TimeBiteTypography.font(.caption2, weight: .bold))
+                        .tracking(1.1)
+                    ForEach(model.suggestedPlanningBlocks.prefix(3)) { suggestion in
+                        Button {
+                            model.scheduleSuggestion(suggestion)
+                        } label: {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(suggestion.action.title).frame(maxWidth: .infinity, alignment: .leading)
+                                Text("\(suggestion.block.startDate.formatted(date: .omitted, time: .shortened)) · \(suggestion.block.plannedDuration.calendarDuration)")
+                                    .font(TimeBiteTypography.font(.caption2))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .padding(10)
+                        .background(TimeBitePalette.surface(for: colorScheme), in: RoundedRectangle(cornerRadius: 10))
+                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(TimeBitePalette.border(for: colorScheme)))
+                    }
+                }
+            }
         }
         .padding(16)
+        .sheet(isPresented: $model.showingBulkCapture) {
+            BulkCaptureView(model: model)
+                .frame(width: 860, height: 760)
+        }
         .sheet(isPresented: $showingNewAction) {
             NewCalendarActionView { title, minutes, priority in
                 model.addAction(title: title, estimatedMinutes: minutes, priority: priority)
             }
         }
+        .sheet(item: $model.estimatePrompt) { prompt in
+            EstimateFeedbackView(prompt: prompt, onAccept: {
+                model.recordEstimateFeedback(accepted: true)
+            }, onReject: { minutes in
+                model.recordEstimateFeedback(accepted: false, alternative: minutes)
+            })
+            .frame(width: 420, height: 280)
+        }
+        .sheet(item: $model.selectedCalendarSuggestion) { suggestion in
+            CalendarSuggestionConfirmationView(
+                suggestion: suggestion,
+                onYes: { model.confirmSchedulingSuggestion() },
+                onNo: { model.declineSchedulingSuggestion() },
+                onMove: { model.moveSchedulingSuggestion() }
+            )
+            .frame(width: 560, height: 320)
+        }
+    }
+}
+
+private struct BulkCaptureView: View {
+    @ObservedObject var model: CalendarViewModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Paste List / Brain Dump").font(TimeBiteTypography.font(.title2, weight: .semibold))
+            Text("Paste messy notes, task lists, or half-formed thoughts. We will parse them into reviewable candidates.")
+                .foregroundStyle(.secondary)
+            TextEditor(text: $model.bulkCaptureText)
+                .font(TimeBiteTypography.font(.body))
+                .padding(10)
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(.quaternary))
+            HStack {
+                Button("Parse") { model.parseBulkCapture() }
+                Spacer()
+                Button("Add Selected") { model.importBulkCapture() }
+                    .buttonStyle(.borderedProminent)
+            }
+            List {
+                ForEach($model.bulkCaptureResult.candidates) { $candidate in
+                    VStack(alignment: .leading, spacing: 10) {
+                        Toggle(isOn: $candidate.isSelected) {
+                            TextField("Task", text: $candidate.title)
+                        }
+                        HStack {
+                            Picker("Type", selection: $candidate.kind) {
+                                ForEach(CaptureItemKind.allCases, id: \.self) { kind in
+                                    Text(kind.rawValue.capitalized).tag(kind)
+                                }
+                            }
+                            Picker("Life Area", selection: Binding(
+                                get: { candidate.lifeArea ?? .other },
+                                set: { candidate.lifeArea = $0 }
+                            )) {
+                                Text("Choose area").tag(LifeArea.other)
+                                ForEach(LifeArea.allCases) { area in Text(area.title).tag(area) }
+                            }
+                            Picker("Priority", selection: Binding(
+                                get: { candidate.priority ?? .medium },
+                                set: { candidate.priority = $0 }
+                            )) {
+                                Text("Medium").tag(ActionPriority.medium)
+                                ForEach(ActionPriority.allCases, id: \.self) { priority in Text(priority.rawValue.capitalized).tag(priority) }
+                            }
+                        }
+                        HStack {
+                            Text("Estimated: \(candidate.estimatedMinutes.map { "\($0) min" } ?? "Need estimate")")
+                            Spacer()
+                            Text("Confidence \(Int(candidate.confidence * 100))%")
+                        }
+                        .font(TimeBiteTypography.font(.caption))
+                        .foregroundStyle(.secondary)
+                        if candidate.requiresLifeAreaSelection {
+                            Text("Choose area").foregroundStyle(TimeBitePalette.gold)
+                        }
+                        if candidate.requiresGoalSelection {
+                            Text("Choose goal").foregroundStyle(TimeBitePalette.gold)
+                        }
+                    }
+                    .padding(.vertical, 8)
+                }
+            }
+        }
+        .padding(18)
+        .onAppear { model.parseBulkCapture() }
+    }
+}
+
+private struct EstimateFeedbackView: View {
+    let prompt: EstimatePrompt
+    let onAccept: () -> Void
+    let onReject: (Int) -> Void
+    @State private var overrideMinutes = 30
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text(prompt.title).font(TimeBiteTypography.font(.title3, weight: .semibold))
+            Text("Estimated: \(prompt.estimatedMinutes) min")
+            Text("Is this realistic?")
+            HStack {
+                Button("Yes") { onAccept() }
+                Button("No") { onReject(overrideMinutes) }
+                Spacer()
+            }
+            HStack {
+                Button("Shorter") { overrideMinutes = max(15, prompt.estimatedMinutes - 15) }
+                Button("Longer") { overrideMinutes = prompt.estimatedMinutes + 15 }
+                Stepper("Enter time: \(overrideMinutes) min", value: $overrideMinutes, in: 15...480, step: 15)
+            }
+        }
+        .padding(24)
+    }
+}
+
+private struct CalendarSuggestionConfirmationView: View {
+    let suggestion: ScheduledSuggestion
+    let onYes: () -> Void
+    let onNo: () -> Void
+    let onMove: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Suggested block").font(TimeBiteTypography.font(.title3, weight: .semibold))
+            Text(suggestion.action.title)
+            Text("Estimated: \(suggestion.block.plannedDuration.calendarDuration)")
+            Text(suggestion.reason).foregroundStyle(.secondary)
+            HStack {
+                Button("Yes") { onYes() }.buttonStyle(.borderedProminent)
+                Button("No") { onNo() }
+                Button("Move") { onMove() }
+            }
+        }
+        .padding(24)
     }
 }
 

@@ -34,7 +34,7 @@ struct RootView: View {
         case .creatingYourReality(.create):
             PlaceholderView(title: "Create", subtitle: "Creating Your Reality", symbol: "sparkles")
         case .creatingYourReality(.discover):
-            PlaceholderView(title: "Discover", subtitle: "Creating Your Reality", symbol: "globe")
+            DiscoverView()
         case .creatingYourReality(.journal):
             PlaceholderView(title: "Journal", subtitle: "Creating Your Reality", symbol: "book.pages")
         case .creatingYourReality(.library):

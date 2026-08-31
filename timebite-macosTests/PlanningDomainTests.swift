@@ -115,5 +115,42 @@ final class PlanningDomainTests: XCTestCase {
         let block = SchedulingService().schedule(action: action, at: start)
         XCTAssertEqual(block.plannedDuration, SchedulingDefaults.defaultBlockDuration)
     }
+
+    func testBulkCaptureParserProducesCandidatesWithPreservedSourceText() {
+        let text = """
+        - Draft launch plan
+        Work:
+        * grocery pickup after meeting
+        """
+        let result = BulkCaptureParser().parse(text)
+        XCTAssertEqual(result.originalText, text)
+        XCTAssertEqual(result.candidates.count, 3)
+        XCTAssertEqual(result.candidates[0].title, "Draft launch plan")
+        XCTAssertEqual(result.candidates[1].kind, .heading)
+        XCTAssertEqual(result.candidates[2].lifeArea, .errands)
+    }
+
+    func testEstimateAdjustmentRepositoryLearnsCorrectionsLocally() {
+        let suiteName = "PlanningDomainTests.estimates.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let repo = LocalEstimateAdjustmentRepository(defaults: defaults)
+        repo.record(inputMinutes: 45, correctedMinutes: 60)
+        XCTAssertEqual(repo.adjustedEstimate(for: 45), 60)
+    }
+
+    func testCalendarPlanningServiceSkipsFixedEventsWhenSuggestingBlocks() {
+        let calendar = Calendar(identifier: .gregorian)
+        let day = Date(timeIntervalSince1970: 1_800_000_000)
+        let event = ExternalCalendarEvent(id: "event", calendarID: "work", title: "Performance", startDate: day.addingTimeInterval(4 * 3_600), endDate: day.addingTimeInterval(5 * 3_600), isAllDay: false)
+        let actions = [
+            Action(title: "Deep work", estimatedDuration: 3_600),
+            Action(title: "Errand", estimatedDuration: 1_800)
+        ]
+        let service = CalendarPlanningService(calendar: calendar, availabilityWindow: DateInterval(start: day, end: day.addingTimeInterval(8 * 3_600)), fixedEvents: [event])
+        let suggestions = service.suggest(actions: actions, estimateRepository: LocalEstimateAdjustmentRepository(defaults: UserDefaults(suiteName: "PlanningDomainTests.suggestions.\(UUID().uuidString)")!))
+        XCTAssertFalse(suggestions.isEmpty)
+        XCTAssertTrue(suggestions.allSatisfy { $0.block.endDate <= event.startDate || $0.block.startDate >= event.endDate })
+    }
 }
 #endif

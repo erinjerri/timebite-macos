@@ -35,10 +35,19 @@ final class CalendarViewModel: ObservableObject {
     @Published private(set) var externalEvents: [ExternalCalendarEvent] = []
     @Published private(set) var calendarAuthorization: CalendarAuthorizationState = .notDetermined
     @Published var selectedBlock: ScheduledBlock?
+    @Published var showingBulkCapture = false
+    @Published var bulkCaptureText = ""
+    @Published var bulkCaptureResult = BulkCaptureParseResult(originalText: "", candidates: [])
+    @Published var suggestedPlanningBlocks: [ScheduledSuggestion] = []
+    @Published var selectedSuggestionID: UUID?
+    @Published var selectedCalendarSuggestion: ScheduledSuggestion?
+    @Published var estimatePrompt: EstimatePrompt?
     @Published var errorMessage: String?
 
     private let repository: any PlanningRepository
     private let externalProvider: any ExternalCalendarProviding
+    private let calendarWriter: (any ExternalCalendarWriting)?
+    private let estimateRepository: LocalEstimateAdjustmentRepository
     private let calendar: Calendar
 
     init(
@@ -51,9 +60,12 @@ final class CalendarViewModel: ObservableObject {
         self.repository = previewStore.map(InMemoryPlanningRepository.init(store:)) ?? repository ?? LocalPlanningRepository()
         #if canImport(EventKit)
         self.externalProvider = externalProvider ?? EventKitCalendarProvider()
+        self.calendarWriter = EventKitCalendarWriter()
         #else
         self.externalProvider = externalProvider ?? EmptyExternalCalendarProvider()
+        self.calendarWriter = nil
         #endif
+        self.estimateRepository = LocalEstimateAdjustmentRepository()
         self.anchorDate = anchorDate
         self.calendar = calendar
         reload()
@@ -185,15 +197,94 @@ final class CalendarViewModel: ObservableObject {
 
     func addAction(title: String, estimatedMinutes: Int?, priority: ActionPriority?) {
         do {
-            try repository.save(Action(title: title, estimatedDuration: estimatedMinutes.map { Double($0 * 60) }, priority: priority))
+            let correctedEstimate = estimatedMinutes.map { estimateRepository.adjustedEstimate(for: $0) }
+            try repository.save(Action(title: title, estimatedDuration: correctedEstimate.map { Double($0 * 60) }, priority: priority))
             reload()
         } catch { errorMessage = error.localizedDescription }
+    }
+
+    func parseBulkCapture() {
+        bulkCaptureResult = BulkCaptureParser().parse(bulkCaptureText)
+    }
+
+    func importBulkCapture() {
+        do {
+            for candidate in bulkCaptureResult.candidates where candidate.isSelected {
+                guard candidate.kind == .task else { continue }
+                let action = Action(
+                    lifeAreaID: candidate.lifeArea?.id,
+                    workLabel: candidate.projectLabel,
+                    title: candidate.title,
+                    notes: candidate.sourceText,
+                    estimatedDuration: candidate.estimatedMinutes.map { Double($0 * 60) },
+                    priority: candidate.priority
+                )
+                try repository.save(action)
+                if let minutes = candidate.estimatedMinutes {
+                    estimatePrompt = EstimatePrompt(actionID: action.id, title: action.title, estimatedMinutes: minutes)
+                }
+            }
+            showingBulkCapture = false
+            reload()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func loadSuggestions() {
+        suggestedPlanningBlocks = CalendarPlanningService(
+            calendar: calendar,
+            availabilityWindow: visibleInterval,
+            fixedEvents: externalEvents
+        ).suggest(actions: actions)
+    }
+
+    func scheduleSuggestion(_ suggestion: ScheduledSuggestion) {
+        selectedCalendarSuggestion = suggestion
+    }
+
+    func confirmSchedulingSuggestion() {
+        guard let suggestion = selectedCalendarSuggestion else { return }
+        do {
+            if let writer = calendarWriter {
+                Task { try? await writer.createEvent(title: suggestion.block.title, startDate: suggestion.block.startDate, endDate: suggestion.block.endDate, notes: suggestion.action.notes) }
+            }
+            let block = try CalendarSchedulingService(repository: repository).confirmSuggestion(suggestion, shouldWriteToCalendar: true)
+            selectedBlock = block
+            selectedCalendarSuggestion = nil
+            reload()
+            loadSuggestions()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func declineSchedulingSuggestion() {
+        selectedCalendarSuggestion = nil
+    }
+
+    func moveSchedulingSuggestion() {
+        guard let current = selectedCalendarSuggestion,
+              let index = suggestedPlanningBlocks.firstIndex(where: { $0.id == current.id }) else {
+            selectedCalendarSuggestion = nil
+            return
+        }
+        let nextIndex = suggestedPlanningBlocks.index(after: index)
+        selectedCalendarSuggestion = suggestedPlanningBlocks.indices.contains(nextIndex) ? suggestedPlanningBlocks[nextIndex] : nil
+    }
+
+    func recordEstimateFeedback(accepted: Bool, alternative: Int? = nil) {
+        guard let prompt = estimatePrompt else { return }
+        let corrected = accepted ? prompt.estimatedMinutes : (alternative ?? max(15, prompt.estimatedMinutes / 2))
+        estimateRepository.record(inputMinutes: prompt.estimatedMinutes, correctedMinutes: corrected)
+        estimatePrompt = nil
     }
 
     func loadExternalEvents(requestAccess: Bool) async {
         let result = await CalendarExternalEventService().load(from: externalProvider, in: visibleInterval, requestAccess: requestAccess)
         calendarAuthorization = result.authorizationState
         externalEvents = result.events
+        loadSuggestions()
     }
 
     private func reload() {
@@ -203,8 +294,16 @@ final class CalendarViewModel: ObservableObject {
             goals = try repository.goals()
             blocks = try repository.scheduledBlocks()
             focusSessions = try repository.focusSessions()
+            loadSuggestions()
         } catch { errorMessage = error.localizedDescription }
     }
+}
+
+struct EstimatePrompt: Identifiable, Sendable {
+    var id: UUID { actionID }
+    var actionID: UUID
+    var title: String
+    var estimatedMinutes: Int
 }
 
 @MainActor
@@ -222,7 +321,8 @@ extension PlanningStore {
         let actions = [
             Action(goalID: goal.id, projectID: project.id, title: "Draft calendar architecture", estimatedDuration: 5400, priority: .high, status: .inProgress),
             Action(projectID: project.id, title: "Review EventKit permissions", estimatedDuration: 2700, priority: .medium),
-            Action(title: "Capture planning notes", priority: .low)
+            Action(title: "Capture planning notes", priority: .low),
+            Action(lifeAreaID: UUID(), workLabel: "Errands", title: "Errands run", estimatedDuration: 1800, priority: .medium)
         ]
         let service = SchedulingService()
         let first = service.schedule(action: actions[0], at: calendar.date(byAdding: .hour, value: 10, to: week) ?? week)
