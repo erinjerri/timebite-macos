@@ -6,10 +6,10 @@ struct WorkspaceTabBar: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            AppSpaceSwitcher(selectedSpace: Binding(
-                get: { navigationState.selectedAppSpace },
-                set: { navigationState.select($0) }
-            ))
+            AppSpaceSwitcher(
+                selectedSpace: navigationState.selectedAppSpace,
+                onSelect: { navigationState.select($0) }
+            )
             .frame(width: 360)
 
             destinationTabs

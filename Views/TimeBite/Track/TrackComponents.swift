@@ -38,7 +38,19 @@ extension TimeInterval {
         let totalMinutes = Int(self / 60)
         let hours = totalMinutes / 60
         let minutes = totalMinutes % 60
-        return hours > 0 ? "\(hours)h \(minutes)m" : "\(minutes)m"
+        if hours > 0, minutes == 0 { return "\(hours)h" }
+        if hours > 0 { return "\(hours)h \(minutes)m" }
+        return "\(minutes)m"
+    }
+}
+
+extension Int {
+    var timeBiteDuration: String {
+        let hours = self / 60
+        let minutes = self % 60
+        if hours > 0, minutes == 0 { return "\(hours)h" }
+        if hours > 0 { return "\(hours)h \(minutes)m" }
+        return "\(minutes)m"
     }
 }
 

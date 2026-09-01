@@ -24,7 +24,7 @@ struct RootView: View {
         case .timeBite(.actions):
             PlaceholderView(title: "Actions", subtitle: "TimeBite", symbol: "checklist")
         case .timeBite(.goals):
-            PlaceholderView(title: "Goals", subtitle: "TimeBite", symbol: "target")
+            GoalsView()
         case .timeBite(.plan):
             PlanView()
         case .timeBite(.track):

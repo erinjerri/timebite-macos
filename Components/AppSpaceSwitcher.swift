@@ -1,16 +1,30 @@
 import SwiftUI
 
 struct AppSpaceSwitcher: View {
-    @Binding var selectedSpace: AppSpace
+	let selectedSpace: AppSpace
+	let onSelect: (AppSpace) -> Void
+	@State private var pickerSelection: AppSpace
 
-    var body: some View {
-        Picker("App Space", selection: $selectedSpace) {
-            ForEach(AppSpace.allCases) { space in
-                Text(space.displayTitle).tag(space)
-            }
-        }
+	init(selectedSpace: AppSpace, onSelect: @escaping (AppSpace) -> Void) {
+		self.selectedSpace = selectedSpace
+		self.onSelect = onSelect
+		_pickerSelection = State(initialValue: selectedSpace)
+	}
+
+	var body: some View {
+		Picker("App Space", selection: $pickerSelection) {
+			ForEach(AppSpace.allCases) { space in
+				Text(space.displayTitle).tag(space)
+			}
+		}
         .pickerStyle(.segmented)
-        .labelsHidden()
-        .font(TimeBiteTypography.font(.callout, weight: .medium))
-    }
+		.labelsHidden()
+		.font(TimeBiteTypography.font(.callout, weight: .medium))
+		.onChange(of: pickerSelection) { _, newValue in
+			onSelect(newValue)
+		}
+		.onChange(of: selectedSpace) { _, newValue in
+			pickerSelection = newValue
+		}
+	}
 }

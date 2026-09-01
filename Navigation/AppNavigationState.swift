@@ -31,7 +31,10 @@ final class AppNavigationState: ObservableObject {
     }
 
     func select(_ space: AppSpace) {
-        selectedAppSpace = space
+        guard selectedAppSpace != space else { return }
+        Task { @MainActor [weak self] in
+            self?.selectedAppSpace = space
+        }
     }
 
     func select(_ destination: TimeBiteDestination) {
