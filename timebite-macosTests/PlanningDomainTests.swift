@@ -152,5 +152,122 @@ final class PlanningDomainTests: XCTestCase {
         XCTAssertFalse(suggestions.isEmpty)
         XCTAssertTrue(suggestions.allSatisfy { $0.block.endDate <= event.startDate || $0.block.startDate >= event.endDate })
     }
+
+    func testDogfoodSeedDataBuildsACompleteHierarchy() {
+        let goals = DogfoodSeedData.makeGoals()
+        let milestones = DogfoodSeedData.makeMilestones()
+        let projects = DogfoodSeedData.makeProjects()
+        let actions = DogfoodSeedData.makeActions()
+
+        XCTAssertEqual(goals.count, 1)
+        XCTAssertEqual(milestones.count, 5)
+        XCTAssertEqual(projects.count, 6)
+        XCTAssertEqual(actions.count, 26)
+
+        let goalID = goals.first?.id
+        XCTAssertTrue(milestones.allSatisfy { $0.goalID == goalID })
+        XCTAssertTrue(projects.allSatisfy { $0.goalID == goalID })
+        XCTAssertTrue(actions.allSatisfy { $0.goalID == goalID })
+
+        let milestoneIDs = Set(milestones.map(\.id))
+        let projectIDs = Set(projects.map(\.id))
+        XCTAssertTrue(projects.allSatisfy { $0.milestoneID.map { milestoneIDs.contains($0) } ?? false })
+        XCTAssertTrue(actions.allSatisfy { $0.milestoneID.map { milestoneIDs.contains($0) } ?? false })
+        XCTAssertTrue(actions.allSatisfy { $0.projectID.map { projectIDs.contains($0) } ?? false })
+        XCTAssertTrue(actions.allSatisfy { $0.lifeAreaID != nil })
+    }
+
+    func testDogfoodSeedDataHasNoDuplicateUUIDs() {
+        let ids = DogfoodSeedData.makeGoals().map(\.id)
+            + DogfoodSeedData.makeMilestones().map(\.id)
+            + DogfoodSeedData.makeProjects().map(\.id)
+            + DogfoodSeedData.makeActions().map(\.id)
+
+        XCTAssertEqual(ids.count, Set(ids).count)
+    }
+
+    func testDogfoodSeedDataSeedsIdempotently() throws {
+        let repository = InMemoryPlanningRepository()
+
+        try DogfoodSeedData.seed(into: repository)
+        let firstCounts = try currentSeedCounts(in: repository)
+
+        try DogfoodSeedData.seed(into: repository)
+        let secondCounts = try currentSeedCounts(in: repository)
+
+        XCTAssertEqual(firstCounts, secondCounts)
+    }
+
+    func testDogfoodSeedDataUsesDurationsAndPrioritiesForEveryAction() {
+        let actions = DogfoodSeedData.makeActions()
+
+        XCTAssertTrue(actions.allSatisfy { $0.estimatedDuration != nil })
+        XCTAssertTrue(actions.allSatisfy { $0.priority != nil })
+    }
+
+    func testDogfoodSeedDataMatchesPlannedAndInboxMinutes() {
+        let actions = DogfoodSeedData.makeActions()
+
+        let plannedMinutes = minutes(for: actions.filter { $0.status == .planned })
+        let inboxMinutes = minutes(for: actions.filter { $0.status == .inbox })
+        let dayOneMinutes = minutes(for: actions.filter { $0.status == .planned && $0.startDate == startOfToday })
+        let completedCount = actions.filter { $0.status == .completed }.count
+        let completedStartDate = actions.first(where: { $0.status == .completed })?.startDate
+
+        XCTAssertEqual(plannedMinutes, 435)
+        XCTAssertEqual(inboxMinutes, 55)
+        XCTAssertEqual(dayOneMinutes, 255)
+        XCTAssertEqual(completedCount, 1)
+        XCTAssertTrue((completedStartDate ?? Date.distantPast) < startOfToday)
+    }
+
+    func testPlanningCaptureParserBuildsPlanningItems() {
+        let text = """
+        1. Core platform rebuild
+        - urgent launch prep
+        Blocked vendor follow-up
+        """
+
+        let items = PlanningCaptureParser.parseProjects(from: text, calendar: .current)
+
+        XCTAssertEqual(items.count, 3)
+        XCTAssertEqual(items.first?.title, "Core platform rebuild")
+        XCTAssertEqual(items[1].priority, .urgent)
+        XCTAssertEqual(items[2].boardState, .blocked)
+    }
+
+    func testPlanningCaptureSummaryEncodesProjects() {
+        let summary = PlanningCaptureSummary(
+            recognizedText: "1. Pilot",
+            projects: [PlanningCaptureProject(title: "Pilot", notes: "", priority: "medium", boardState: "backlog")]
+        )
+
+        XCTAssertTrue(summary.jsonString.contains("\"Pilot\""))
+    }
+
+    func testDogfoodSeedDataKeepsInboxActionsUnscheduled() {
+        let inboxActions = DogfoodSeedData.makeActions().filter { $0.status == .inbox }
+
+        XCTAssertTrue(inboxActions.allSatisfy { $0.startDate == nil })
+    }
+
+    private var startOfToday: Date {
+        Calendar.current.startOfDay(for: Date())
+    }
+
+    private func currentSeedCounts(in repository: InMemoryPlanningRepository) throws -> [Int] {
+        [
+            try repository.goals().count,
+            try repository.milestones().count,
+            try repository.projects().count,
+            try repository.actions().count
+        ]
+    }
+
+    private func minutes(for actions: [Action]) -> Int {
+        actions.reduce(0) { partialResult, action in
+            partialResult + Int((action.estimatedDuration ?? 0) / 60)
+        }
+    }
 }
 #endif

@@ -15,9 +15,10 @@ final class EventKitCalendarProvider: ExternalCalendarProviding {
             switch EKEventStore.authorizationStatus(for: .event) {
             case .notDetermined: .notDetermined
             case .fullAccess, .writeOnly: .authorized
+            case .authorized: .authorized
             case .denied: .denied
             case .restricted: .restricted
-            default: .unavailable
+            @unknown default: .unavailable
             }
         } else {
             switch EKEventStore.authorizationStatus(for: .event) {
@@ -25,7 +26,7 @@ final class EventKitCalendarProvider: ExternalCalendarProviding {
             case .authorized: .authorized
             case .denied: .denied
             case .restricted: .restricted
-            @unknown default: .unavailable
+            default: .unavailable
             }
         }
     }

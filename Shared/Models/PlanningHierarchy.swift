@@ -64,6 +64,7 @@ enum LifeArea: String, CaseIterable, Codable, Identifiable, Sendable {
 struct Goal: Identifiable, Codable, Hashable, Sendable {
     var id: UUID
     var title: String
+    var categoryID: UUID?
     var notes: String
     var startDate: Date?
     var targetDate: Date?
@@ -74,6 +75,7 @@ struct Goal: Identifiable, Codable, Hashable, Sendable {
     init(
         id: UUID = UUID(),
         title: String,
+        categoryID: UUID? = nil,
         notes: String = "",
         startDate: Date? = nil,
         targetDate: Date? = nil,
@@ -83,12 +85,30 @@ struct Goal: Identifiable, Codable, Hashable, Sendable {
     ) {
         self.id = id
         self.title = title
+        self.categoryID = categoryID
         self.notes = notes
         self.startDate = startDate
         self.targetDate = targetDate
         self.status = status
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, title, categoryID, notes, startDate, targetDate, status, createdAt, updatedAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        title = try container.decode(String.self, forKey: .title)
+        categoryID = try container.decodeIfPresent(UUID.self, forKey: .categoryID)
+        notes = try container.decodeIfPresent(String.self, forKey: .notes) ?? ""
+        startDate = try container.decodeIfPresent(Date.self, forKey: .startDate)
+        targetDate = try container.decodeIfPresent(Date.self, forKey: .targetDate)
+        status = try container.decodeIfPresent(PlanningEntityStatus.self, forKey: .status) ?? .active
+        createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
+        updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt) ?? createdAt
     }
 }
 

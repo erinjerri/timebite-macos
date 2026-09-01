@@ -85,7 +85,7 @@ struct BulkCaptureParser {
             let line = rawLine.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !line.isEmpty else { continue }
             let cleaned = stripBulletPrefix(line)
-            let kind = inferKind(cleaned)
+            let kind = inferKind(rawLine: line, cleaned)
             let area = inferLifeArea(cleaned)
             let priority = inferPriority(cleaned)
             let minutes = inferEstimate(cleaned, kind: kind)
@@ -125,8 +125,8 @@ struct BulkCaptureParser {
         return trimmed
     }
 
-    private func inferKind(_ line: String) -> CaptureItemKind {
-        if line.hasSuffix(":") || line.lowercased() == line && line.count < 40 { return .heading }
+    private func inferKind(rawLine: String, _ line: String) -> CaptureItemKind {
+        if rawLine.trimmingCharacters(in: .whitespaces).hasSuffix(":") || line.lowercased() == line && line.count < 40 { return .heading }
         if line.lowercased().contains("project") { return .project }
         if line.lowercased().hasPrefix("note ") || line.lowercased().hasPrefix("remember ") { return .note }
         return .task
@@ -134,10 +134,10 @@ struct BulkCaptureParser {
 
     private func inferLifeArea(_ line: String) -> LifeArea? {
         let lower = line.lowercased()
+        if lower.contains("errand") || lower.contains("grocery") || lower.contains("pickup") { return .errands }
         if lower.contains("work") || lower.contains("meeting") || lower.contains("ship") { return .work }
         if lower.contains("home") || lower.contains("kitchen") || lower.contains("clean") { return .home }
         if lower.contains("gym") || lower.contains("run") || lower.contains("sleep") { return .health }
-        if lower.contains("errand") || lower.contains("grocery") || lower.contains("pickup") { return .errands }
         if lower.contains("family") || lower.contains("friend") || lower.contains("partner") { return .relationships }
         if lower.contains("budget") || lower.contains("bank") || lower.contains("pay") { return .finance }
         if lower.contains("learn") || lower.contains("study") || lower.contains("read") { return .learning }
