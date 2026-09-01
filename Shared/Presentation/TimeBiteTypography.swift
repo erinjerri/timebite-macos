@@ -2,6 +2,9 @@ import SwiftUI
 
 enum TimeBiteTypography {
     static let familyName = "League Spartan"
+    static let eyebrowTracking: CGFloat = 1.4
+    static let sectionHeaderTracking: CGFloat = 0.25
+    static let bodyLineSpacing: CGFloat = 3
 
     static func font(
         _ style: Font.TextStyle,

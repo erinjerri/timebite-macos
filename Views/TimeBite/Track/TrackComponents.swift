@@ -14,6 +14,7 @@ struct TrackCard<Content: View>: View {
         VStack(alignment: .leading, spacing: 16) {
             Text(title)
                 .font(TimeBiteTypography.font(.headline, weight: .semibold))
+                .tracking(TimeBiteTypography.sectionHeaderTracking)
             content
         }
         .padding(20)
@@ -28,7 +29,11 @@ struct TrackingEmptyState: View {
     let message: String
 
     var body: some View {
-        ContentUnavailableView(title, systemImage: "clock.badge.questionmark", description: Text(message))
+        ContentUnavailableView(
+            title,
+            systemImage: "clock.badge.questionmark",
+            description: Text(message)
+        )
             .frame(maxWidth: .infinity, minHeight: 180)
     }
 }

@@ -10,6 +10,7 @@ struct PrimaryNavigationBar: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(subtitle.uppercased())
                     .font(TimeBiteTypography.font(.caption, weight: .semibold))
+                    .tracking(TimeBiteTypography.eyebrowTracking)
                     .foregroundStyle(TimeBitePalette.sky)
                 Text(title)
                     .font(TimeBiteTypography.font(.title, weight: .semibold))

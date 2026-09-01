@@ -11,7 +11,7 @@ struct CalendarActionSidebar: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("UNSCHEDULED ACTIONS")
                         .font(TimeBiteTypography.font(.caption2, weight: .bold))
-                        .tracking(1.2)
+                        .tracking(TimeBiteTypography.eyebrowTracking)
                     Text("Drag work into time")
                         .font(TimeBiteTypography.font(.caption))
                         .foregroundStyle(.secondary)
@@ -33,7 +33,11 @@ struct CalendarActionSidebar: View {
             ScrollView {
                 LazyVStack(spacing: 9) {
                     if model.filteredActions.isEmpty {
-                        ContentUnavailableView("No matching actions", systemImage: "checkmark.square", description: Text("Change the filter or create an action."))
+                        ContentUnavailableView(
+                            "No matching actions",
+                            systemImage: "checkmark.square",
+                            description: Text("Change the filter or create an action.")
+                        )
                             .frame(minHeight: 240)
                     } else {
                         ForEach(model.filteredActions) { action in
@@ -53,7 +57,7 @@ struct CalendarActionSidebar: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Suggested blocks")
                         .font(TimeBiteTypography.font(.caption2, weight: .bold))
-                        .tracking(1.1)
+                        .tracking(TimeBiteTypography.sectionHeaderTracking)
                     ForEach(model.suggestedPlanningBlocks.prefix(3)) { suggestion in
                         Button {
                             model.scheduleSuggestion(suggestion)
@@ -110,6 +114,7 @@ private struct BulkCaptureView: View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Paste List / Brain Dump").font(TimeBiteTypography.font(.title2, weight: .semibold))
             Text("Paste messy notes, task lists, or half-formed thoughts. We will parse them into reviewable candidates.")
+                .lineSpacing(TimeBiteTypography.bodyLineSpacing)
                 .foregroundStyle(.secondary)
             TextEditor(text: $model.bulkCaptureText)
                 .font(TimeBiteTypography.font(.body))
@@ -182,6 +187,7 @@ private struct EstimateFeedbackView: View {
             Text(prompt.title).font(TimeBiteTypography.font(.title3, weight: .semibold))
             Text("Estimated: \(prompt.estimatedMinutes) min")
             Text("Is this realistic?")
+                .lineSpacing(TimeBiteTypography.bodyLineSpacing)
             HStack {
                 Button("Yes") { onAccept() }
                 Button("No") { onReject(overrideMinutes) }
@@ -208,7 +214,9 @@ private struct CalendarSuggestionConfirmationView: View {
             Text("Suggested block").font(TimeBiteTypography.font(.title3, weight: .semibold))
             Text(suggestion.action.title)
             Text("Estimated: \(suggestion.block.plannedDuration.calendarDuration)")
-            Text(suggestion.reason).foregroundStyle(.secondary)
+            Text(suggestion.reason)
+                .lineSpacing(TimeBiteTypography.bodyLineSpacing)
+                .foregroundStyle(.secondary)
             HStack {
                 Button("Yes") { onYes() }.buttonStyle(.borderedProminent)
                 Button("No") { onNo() }

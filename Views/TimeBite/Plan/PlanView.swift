@@ -8,6 +8,7 @@ import Vision
 
 enum PlanSection: String, CaseIterable, Identifiable {
     case workspace
+    case personal
     case calendar
     case timeline
 
@@ -16,6 +17,7 @@ enum PlanSection: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .workspace: return "Studio"
+        case .personal: return "My plan"
         case .calendar: return "Calendar"
         case .timeline: return "Timeline"
         }
@@ -24,6 +26,7 @@ enum PlanSection: String, CaseIterable, Identifiable {
     var subtitle: String {
         switch self {
         case .workspace: return "Project intake + frameworks"
+        case .personal: return "Start from a blank slate"
         case .calendar: return "Scheduled blocks"
         case .timeline: return "Roadmap"
         }
@@ -58,6 +61,8 @@ struct PlanView: View {
             switch section {
             case .workspace:
                 PlanningWorkbenchView()
+            case .personal:
+                ConsumerPlanningView()
             case .calendar:
                 TimeBiteCalendarView()
             case .timeline:
@@ -147,6 +152,7 @@ struct PlanningWorkbenchView: View {
 
                 Text("Paste any number of projects, pull in your existing goals and actions, or scan a handwritten page. The studio turns the list into three thinking modes: Gantt for time, Kanban for flow, and Eisenhower for triage.")
                     .font(TimeBiteTypography.font(.callout))
+                    .lineSpacing(TimeBiteTypography.bodyLineSpacing)
                     .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
             }
         }
@@ -178,6 +184,7 @@ struct PlanningWorkbenchView: View {
                     if viewModel.rawText.isEmpty {
                         Text("Paste one project per line.\n\nExamples:\n- Timebite platform rebuild\n- HealthKit sleep sync\n- OCR planner import")
                             .font(TimeBiteTypography.font(.callout))
+                            .lineSpacing(TimeBiteTypography.bodyLineSpacing)
                             .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
                             .padding(16)
                     }
@@ -191,6 +198,7 @@ struct PlanningWorkbenchView: View {
                     .padding(12)
                     .frame(minHeight: 190)
                 }
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
 
                 HStack(spacing: 10) {
                     Button {
@@ -250,6 +258,7 @@ struct PlanningWorkbenchView: View {
             VStack(alignment: .leading, spacing: 14) {
                 Text("Scan or import a planner page. TimeBite recognizes the handwriting, turns it into JSON, and pre-populates the intake list.")
                     .font(TimeBiteTypography.font(.callout))
+                    .lineSpacing(TimeBiteTypography.bodyLineSpacing)
                     .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
 
                 if let capture = viewModel.lastCapture {
@@ -324,6 +333,7 @@ private struct PlanningSurfaceCard<Content: View>: View {
 
                 Text(title)
                     .font(TimeBiteTypography.font(.title3, weight: .semibold))
+                    .tracking(TimeBiteTypography.sectionHeaderTracking)
                 Spacer()
             }
 
@@ -363,6 +373,7 @@ private struct PlanningWidgetToggle: View {
                         .font(TimeBiteTypography.font(.headline, weight: .semibold))
                     Text(subtitle)
                         .font(TimeBiteTypography.font(.callout))
+                        .lineSpacing(TimeBiteTypography.bodyLineSpacing)
                         .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
                 }
 
@@ -402,13 +413,13 @@ private struct PlanningBadge: View {
                 .frame(width: 24, height: 24)
                 .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
 
-            VStack(alignment: .leading, spacing: 1) {
-                Text(title)
-                    .font(TimeBiteTypography.font(.headline, weight: .semibold))
-                Text(subtitle)
-                    .font(TimeBiteTypography.font(.caption))
-                    .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
-            }
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title)
+                        .font(TimeBiteTypography.font(.headline, weight: .semibold))
+                    Text(subtitle)
+                        .font(TimeBiteTypography.font(.caption))
+                        .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
+                }
 
             Spacer(minLength: 0)
         }
@@ -425,14 +436,25 @@ private struct PlanningGanttView: View {
     private let pointsPerDay: CGFloat = 22
 
     var body: some View {
-        let displayItems = PlanningGanttPlanner.makeRows(from: items)
-        let range = PlanningGanttPlanner.visibleRange(for: displayItems)
-        ScrollView([.vertical, .horizontal]) {
+        TimelineView(.periodic(from: Date(), by: 3_600)) { context in
+            let displayItems = PlanningGanttPlanner.makeRows(from: items)
+            let range = PlanningGanttPlanner.visibleRange(for: displayItems)
+            ganttContent(displayItems: displayItems, range: range, today: context.date)
+        }
+    }
+
+    private func ganttContent(displayItems: [PlanningWorkbenchItem], range: DateInterval, today: Date) -> some View {
+        let timelineWidth = max(640, CGFloat(range.duration / 86_400.0) * pointsPerDay)
+        let todayOffset = today.timeIntervalSince(range.start) / 86_400.0 * pointsPerDay
+        let markerIsVisible = todayOffset >= 0 && todayOffset <= timelineWidth
+        let contentHeight = 38 + CGFloat(displayItems.count) * (rowHeight + 12)
+
+        return ScrollView([.vertical, .horizontal]) {
             VStack(alignment: .leading, spacing: 0) {
                 ganttHeader(range: range)
-                ForEach(Array(displayItems.enumerated()), id: \.element.id) { index, item in
+                ForEach(displayItems) { item in
                     HStack(spacing: 0) {
-                        VStack(alignment: .leading, spacing: 2) {
+                        VStack(alignment: .leading, spacing: 5) {
                             Text(item.title)
                                 .font(TimeBiteTypography.font(.callout, weight: .semibold))
                                 .lineLimit(1)
@@ -449,10 +471,8 @@ private struct PlanningGanttView: View {
                                 .frame(height: 1)
                                 .offset(y: rowHeight / 2)
 
-                            let start = item.startDate
-                            let end = item.targetDate
-                            let startOffset = max(0, start.timeIntervalSince(range.start) / 86_400.0)
-                            let widthDays = max(1, end.timeIntervalSince(start) / 86_400.0)
+                            let startOffset = max(0, item.startDate.timeIntervalSince(range.start) / 86_400.0)
+                            let widthDays = max(1, item.targetDate.timeIntervalSince(item.startDate) / 86_400.0)
                             RoundedRectangle(cornerRadius: 8, style: .continuous)
                                 .fill(item.tint.gradient)
                                 .frame(width: CGFloat(widthDays) * pointsPerDay, height: 22)
@@ -466,16 +486,31 @@ private struct PlanningGanttView: View {
                                         .frame(width: CGFloat(widthDays) * pointsPerDay, alignment: .leading)
                                 }
                         }
-                        .frame(width: max(640, CGFloat(range.duration / 86_400.0) * pointsPerDay), height: rowHeight)
+                        .frame(width: timelineWidth, height: rowHeight)
                     }
-                    .padding(.vertical, 4)
+                    .padding(.vertical, 6)
                     .overlay(alignment: .bottom) {
                         Divider().opacity(0.5)
                     }
                 }
             }
             .padding(.vertical, 2)
-            .frame(minWidth: labelWidth + max(640, CGFloat(range.duration / 86_400.0) * pointsPerDay), alignment: .leading)
+            .frame(minWidth: labelWidth + timelineWidth, alignment: .leading)
+            .overlay(alignment: .topLeading) {
+                if markerIsVisible {
+                    VStack(spacing: 4) {
+                        Text("TODAY")
+                            .font(TimeBiteTypography.font(.caption2, weight: .bold))
+                            .tracking(TimeBiteTypography.eyebrowTracking)
+                            .foregroundStyle(TimeBitePalette.sky)
+                        Rectangle()
+                            .fill(TimeBitePalette.sky)
+                            .frame(width: 2, height: max(0, contentHeight - 8))
+                    }
+                    .offset(x: labelWidth + CGFloat(todayOffset), y: 2)
+                    .allowsHitTesting(false)
+                }
+            }
         }
         .frame(minHeight: 260)
     }
@@ -484,6 +519,7 @@ private struct PlanningGanttView: View {
         HStack(spacing: 0) {
             Text("Project")
                 .font(TimeBiteTypography.font(.caption, weight: .semibold))
+                .tracking(TimeBiteTypography.sectionHeaderTracking)
                 .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
                 .frame(width: labelWidth, alignment: .leading)
 
@@ -531,6 +567,7 @@ private struct PlanningKanbanColumn: View {
             HStack {
                 Text(title)
                     .font(TimeBiteTypography.font(.headline, weight: .semibold))
+                    .tracking(TimeBiteTypography.sectionHeaderTracking)
                 Spacer()
                 Text("\(items.count)")
                     .font(TimeBiteTypography.font(.caption, weight: .semibold))
@@ -548,7 +585,7 @@ private struct PlanningKanbanColumn: View {
             } else {
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(items.prefix(8)) { item in
-                        VStack(alignment: .leading, spacing: 4) {
+                        VStack(alignment: .leading, spacing: 6) {
                             Text(item.title)
                                 .font(TimeBiteTypography.font(.callout, weight: .semibold))
                                 .lineLimit(2)
@@ -557,7 +594,7 @@ private struct PlanningKanbanColumn: View {
                                 .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(10)
+                        .padding(12)
                         .background(TimeBitePalette.elevatedSurface(for: colorScheme), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     }
                 }
@@ -602,6 +639,7 @@ private struct PlanningQuadrant: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)
                         .font(TimeBiteTypography.font(.headline, weight: .semibold))
+                        .tracking(TimeBiteTypography.sectionHeaderTracking)
                     Text(subtitle)
                         .font(TimeBiteTypography.font(.caption))
                         .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
@@ -789,7 +827,7 @@ struct PlanningWorkbenchItem: Identifiable, Hashable {
     var accentSeed: String
 
     var subtitle: String {
-        [sourceLabel, priority.rawValue.capitalized].joined(separator: " · ")
+        sourceLabel
     }
 
     var isUrgent: Bool {
@@ -801,7 +839,7 @@ struct PlanningWorkbenchItem: Identifiable, Hashable {
     }
 
     var shortLabel: String {
-        "\(priority.rawValue.capitalized) · \(boardState.rawValue.capitalized)"
+        priority.rawValue.capitalized
     }
 
     var tint: Color {

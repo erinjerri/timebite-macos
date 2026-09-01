@@ -37,7 +37,7 @@ struct HabitsTrackView: View {
                         Divider()
                         Text("HABITS")
                             .font(TimeBiteTypography.font(.caption2, weight: .bold))
-                            .tracking(1.2)
+                            .tracking(TimeBiteTypography.eyebrowTracking)
                             .foregroundStyle(.secondary)
                         ForEach(model.habits.filter { !$0.isArchived }) { habit in
                             habitRow(habit)
@@ -83,7 +83,7 @@ struct HabitsTrackView: View {
 
     private func habitRow(_ habit: Habit) -> some View {
         HStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 5) {
                 Text(habit.title).font(TimeBiteTypography.font(.body, weight: .semibold))
                 Text(habitDetail(habit)).font(TimeBiteTypography.font(.caption)).foregroundStyle(.secondary)
             }

@@ -66,6 +66,7 @@ struct SidebarView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title.uppercased())
                 .font(TimeBiteTypography.font(.caption, weight: .semibold))
+                .tracking(TimeBiteTypography.eyebrowTracking)
                 .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
                 .padding(.horizontal, 8)
 

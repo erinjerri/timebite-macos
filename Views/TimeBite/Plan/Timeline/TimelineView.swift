@@ -98,6 +98,7 @@ private struct TimelineCanvas: View {
         HStack(spacing: 0) {
             Text("INTENDED TRAJECTORY")
                 .font(TimeBiteTypography.font(.caption, weight: .semibold))
+                .tracking(TimeBiteTypography.eyebrowTracking)
                 .foregroundStyle(.secondary)
                 .padding(.leading, 18)
                 .frame(width: labelWidth, height: 44, alignment: .leading)

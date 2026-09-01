@@ -279,6 +279,7 @@ struct NowView: View {
             VStack(alignment: .leading, spacing: 14) {
                 Text("Turn today's intention into a goal, then choose the smallest next step.")
                     .font(TimeBiteTypography.font(.callout))
+                    .lineSpacing(TimeBiteTypography.bodyLineSpacing)
                     .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
 
                 VStack(alignment: .leading, spacing: 18) {
@@ -456,7 +457,7 @@ struct NowView: View {
                                     VStack(alignment: .leading, spacing: 8) {
                                         Text("Loose actions")
                                             .font(TimeBiteTypography.font(.caption2, weight: .bold))
-                                            .tracking(1.1)
+                                            .tracking(TimeBiteTypography.eyebrowTracking)
                                             .textCase(.uppercase)
                                             .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
 
@@ -557,6 +558,7 @@ struct NowView: View {
                             .font(TimeBiteTypography.font(.title3, weight: .semibold))
                         Text("Baseline, project targets, and remaining time are shown as editable lanes.")
                             .font(TimeBiteTypography.font(.callout))
+                            .lineSpacing(TimeBiteTypography.bodyLineSpacing)
                             .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
                     }
                 }
@@ -575,6 +577,7 @@ struct NowView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Every category stays editable and labeled as an estimate.")
                     .font(TimeBiteTypography.font(.callout))
+                    .lineSpacing(TimeBiteTypography.bodyLineSpacing)
                     .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
 
                 ForEach(model.preferences.baselineNeeds) { need in
@@ -799,7 +802,7 @@ struct NowView: View {
                 Text(action.status.rawValue.capitalized)
                     .font(TimeBiteTypography.font(.caption2, weight: .bold))
                     .textCase(.uppercase)
-                    .tracking(1.1)
+                    .tracking(TimeBiteTypography.eyebrowTracking)
                     .foregroundStyle(color(for: model.currentSelectionColor(for: action)))
             } else {
                 Text("No action selected yet")
@@ -1023,6 +1026,7 @@ private struct LiveElapsedText: View {
             }
         } else {
             Text("Pick an action to begin timing.")
+                .lineSpacing(TimeBiteTypography.bodyLineSpacing)
         }
     }
 
@@ -1056,6 +1060,7 @@ struct DashboardCard<Content: View>: View {
                     .foregroundStyle(tint)
                 Text(title)
                     .font(TimeBiteTypography.font(.headline, weight: .semibold))
+                    .tracking(TimeBiteTypography.sectionHeaderTracking)
                 Spacer(minLength: 0)
             }
 
