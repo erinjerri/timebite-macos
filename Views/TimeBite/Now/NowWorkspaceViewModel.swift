@@ -82,8 +82,10 @@ final class NowWorkspaceViewModel: ObservableObject {
     @Published private(set) var sessions: [FocusSession] = []
     @Published var preferences: NowWorkspacePreferences
     @Published var draftGoalTitle = ""
+    @Published var draftGoalCategoryID: UUID?
+    @Published var draftNewCategoryTitle = ""
     @Published var draftProjectTitle = ""
-    @Published var draftActionTitle = ""
+    @Published var draftActionTitles = [""]
     @Published var draftEstimateMinutes = 45
     @Published var selectedActionID: UUID?
     @Published var completionChoice: NowActionCompletionChoice = .complete
@@ -91,6 +93,7 @@ final class NowWorkspaceViewModel: ObservableObject {
 
     private let repository: any PlanningRepository
     private let preferencesStore: LocalNowWorkspacePreferencesStore
+    private let categoryStore: LocalGoalCategoryStore
     private let calendar: Calendar
     private let now: () -> Date
     private let defaultEstimateMinutes = Int(SchedulingDefaults.defaultBlockDuration / 60)
@@ -98,12 +101,14 @@ final class NowWorkspaceViewModel: ObservableObject {
     init(
         repository: (any PlanningRepository)? = nil,
         preferencesStore: LocalNowWorkspacePreferencesStore? = nil,
+        categoryStore: LocalGoalCategoryStore? = nil,
         calendar: Calendar = .current,
         now: @escaping () -> Date = Date.init
     ) {
         let preferencesStore = preferencesStore ?? LocalNowWorkspacePreferencesStore()
         self.repository = repository ?? LocalPlanningRepository()
         self.preferencesStore = preferencesStore
+        self.categoryStore = categoryStore ?? LocalGoalCategoryStore()
         self.calendar = calendar
         self.now = now
         self.preferences = preferencesStore.load()
@@ -112,6 +117,52 @@ final class NowWorkspaceViewModel: ObservableObject {
             preferencesStore.save(self.preferences)
         }
         reload()
+    }
+
+    var goalCategories: [GoalCategory] { categoryStore.load() }
+
+    var draftActionTitle: String {
+        get { draftActionTitles.first ?? "" }
+        set {
+            if draftActionTitles.isEmpty { draftActionTitles = [newValue] }
+            else { draftActionTitles[0] = newValue }
+        }
+    }
+
+    func addDraftAction() {
+        draftActionTitles.append("")
+    }
+
+    func removeDraftAction(at index: Int) {
+        guard draftActionTitles.count > 1, draftActionTitles.indices.contains(index) else { return }
+        draftActionTitles.remove(at: index)
+    }
+
+    func createGoalCategory() {
+        let title = draftNewCategoryTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !title.isEmpty else { return }
+        var categories = categoryStore.load()
+        if let existing = categories.first(where: { $0.title.caseInsensitiveCompare(title) == .orderedSame }) {
+            draftGoalCategoryID = existing.id
+        } else {
+            let category = GoalCategory(title: title)
+            categories.append(category)
+            categoryStore.save(categories)
+            draftGoalCategoryID = category.id
+        }
+        draftNewCategoryTitle = ""
+        objectWillChange.send()
+    }
+
+    func createGoalDraft() {
+        let title = draftGoalTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !title.isEmpty else { return }
+        do {
+            _ = try upsertGoal(title: title, categoryID: draftGoalCategoryID)
+            reload()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 
     var activeSession: FocusSession? {
@@ -191,28 +242,38 @@ final class NowWorkspaceViewModel: ObservableObject {
     }
 
     func createAction() {
-        let title = draftActionTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !title.isEmpty else { return }
+        let titles = draftActionTitles
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard !titles.isEmpty else { return }
 
         do {
             let trimmedGoal = draftGoalTitle.trimmingCharacters(in: .whitespacesAndNewlines)
             let trimmedProject = draftProjectTitle.trimmingCharacters(in: .whitespacesAndNewlines)
 
-            let goal = trimmedGoal.isEmpty ? nil : try upsertGoal(title: trimmedGoal)
+            let goal = trimmedGoal.isEmpty ? nil : try upsertGoal(title: trimmedGoal, categoryID: draftGoalCategoryID)
             let project = trimmedProject.isEmpty ? nil : try upsertProject(title: trimmedProject, goalID: goal?.id)
-            let action = Action(
-                goalID: goal?.id,
-                projectID: project?.id,
-                title: title,
-                estimatedDuration: Double(max(15, draftEstimateMinutes)) * 60,
-                status: .planned
-            )
-            try repository.save(action)
+            let savedActions = try titles.map { title in
+                let action = Action(
+                    goalID: goal?.id,
+                    projectID: project?.id,
+                    title: title,
+                    estimatedDuration: Double(max(15, draftEstimateMinutes)) * 60,
+                    status: .planned
+                )
+                try repository.save(action)
+                return action
+            }
+            if let firstAction = savedActions.first {
+                selectedActionID = firstAction.id
+                start(firstAction)
+            }
             draftActionTitle = ""
             draftProjectTitle = ""
             draftGoalTitle = ""
+            draftGoalCategoryID = nil
+            draftActionTitles = [""]
             draftEstimateMinutes = defaultEstimateMinutes
-            selectedActionID = action.id
             reload()
         } catch {
             errorMessage = error.localizedDescription
@@ -419,11 +480,16 @@ final class NowWorkspaceViewModel: ObservableObject {
         return .violet
     }
 
-    private func upsertGoal(title: String) throws -> Goal {
+    private func upsertGoal(title: String, categoryID: UUID?) throws -> Goal {
         if let existing = goals.first(where: { $0.title.caseInsensitiveCompare(title) == .orderedSame }) {
-            return existing
+            guard existing.categoryID != categoryID else { return existing }
+            var updated = existing
+            updated.categoryID = categoryID
+            updated.updatedAt = now()
+            try repository.save(updated)
+            return updated
         }
-        let goal = Goal(title: title, status: .active)
+        let goal = Goal(title: title, categoryID: categoryID, status: .active)
         try repository.save(goal)
         return goal
     }
