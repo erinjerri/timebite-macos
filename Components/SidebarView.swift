@@ -50,10 +50,10 @@ struct SidebarView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("TimeBite")
                 .font(TimeBiteTypography.font(.headline, weight: .semibold))
-            AppSpaceSwitcher(selectedSpace: Binding(
-                get: { navigationState.selectedAppSpace },
-                set: { navigationState.select($0) }
-            ))
+            AppSpaceSwitcher(
+                selectedSpace: navigationState.selectedAppSpace,
+                onSelect: { navigationState.select($0) }
+            )
         }
     }
 
