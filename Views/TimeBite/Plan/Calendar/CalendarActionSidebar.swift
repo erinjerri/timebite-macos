@@ -26,7 +26,9 @@ struct CalendarActionSidebar: View {
             }
 
             Picker("Action filter", selection: $model.actionFilter) {
-                ForEach(CalendarActionFilter.allCases) { filter in Text(filter.title).tag(filter) }
+                ForEach(CalendarActionFilter.allCases) { filter in
+                    Text(filter.title).tag(filter)
+                }
             }
             .labelsHidden()
 

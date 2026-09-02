@@ -1,13 +1,6 @@
 import Combine
 import Foundation
 
-enum NowActionCompletionChoice: String, CaseIterable, Codable, Identifiable, Sendable {
-    case complete
-    case keepInProgress
-
-    var id: String { rawValue }
-}
-
 struct NowLaneSummary: Identifiable, Hashable, Sendable {
     var id: String
     var title: String
@@ -86,9 +79,14 @@ final class NowWorkspaceViewModel: ObservableObject {
     @Published var draftNewCategoryTitle = ""
     @Published var draftProjectTitle = ""
     @Published var draftActionTitles = [""]
+    @Published var draftEstimateInputMode: NowEstimateInputMode = .duration
     @Published var draftEstimateMinutes = 45
+    @Published var draftEstimateStartDate = Date()
+    @Published var draftEstimateEndDate = Date().addingTimeInterval(45 * 60)
     @Published var selectedActionID: UUID?
-    @Published var completionChoice: NowActionCompletionChoice = .complete
+    @Published private(set) var routinePlans: [NowRoutinePlan] = []
+    @Published private(set) var lastTimerEvent: NowTimerEvent?
+    @Published private(set) var lastTimerActionID: UUID?
     @Published var errorMessage: String?
 
     private let repository: any PlanningRepository
@@ -117,6 +115,14 @@ final class NowWorkspaceViewModel: ObservableObject {
             preferencesStore.save(self.preferences)
         }
         reload()
+        if routinePlans.isEmpty {
+            routinePlans = makeDefaultRoutinePlans(
+                actions: actions,
+                projects: projects,
+                now: now(),
+                calendar: calendar
+            )
+        }
     }
 
     var goalCategories: [GoalCategory] { categoryStore.load() }
@@ -250,6 +256,7 @@ final class NowWorkspaceViewModel: ObservableObject {
         do {
             let trimmedGoal = draftGoalTitle.trimmingCharacters(in: .whitespacesAndNewlines)
             let trimmedProject = draftProjectTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+            let estimate = try validatedDraftEstimate()
 
             let goal = trimmedGoal.isEmpty ? nil : try upsertGoal(title: trimmedGoal, categoryID: draftGoalCategoryID)
             let project = trimmedProject.isEmpty ? nil : try upsertProject(title: trimmedProject, goalID: goal?.id)
@@ -258,7 +265,9 @@ final class NowWorkspaceViewModel: ObservableObject {
                     goalID: goal?.id,
                     projectID: project?.id,
                     title: title,
-                    estimatedDuration: Double(max(15, draftEstimateMinutes)) * 60,
+                    estimatedDuration: estimate.duration.map { Double($0) },
+                    startDate: estimate.startDate,
+                    targetDate: estimate.endDate,
                     status: .planned
                 )
                 try repository.save(action)
@@ -274,6 +283,9 @@ final class NowWorkspaceViewModel: ObservableObject {
             draftGoalCategoryID = nil
             draftActionTitles = [""]
             draftEstimateMinutes = defaultEstimateMinutes
+            draftEstimateInputMode = .duration
+            draftEstimateStartDate = now()
+            draftEstimateEndDate = now().addingTimeInterval(Double(defaultEstimateMinutes) * 60)
             reload()
         } catch {
             errorMessage = error.localizedDescription
@@ -283,11 +295,15 @@ final class NowWorkspaceViewModel: ObservableObject {
     func start(_ action: Action) {
         do {
             if let activeSession, activeSession.actionID != action.id {
-                try finalize(activeSession: activeSession, completionChoice: .keepInProgress)
+                try finalize(activeSession: activeSession, actualDuration: elapsedDuration(for: activeSession, now: now()), sessionStatus: .completed, actionStatus: .inProgress)
+                lastTimerEvent = .stopped
+                lastTimerActionID = activeSession.actionID
             }
             let session = FocusSession(actionID: action.id, startDate: now(), status: .active)
             try repository.save(session)
             selectedActionID = action.id
+            lastTimerEvent = .running
+            lastTimerActionID = action.id
             reload()
         } catch {
             errorMessage = error.localizedDescription
@@ -297,7 +313,34 @@ final class NowWorkspaceViewModel: ObservableObject {
     func stopActiveSession() {
         do {
             guard let activeSession else { return }
-            try finalize(activeSession: activeSession, completionChoice: completionChoice)
+            try finalize(
+                activeSession: activeSession,
+                actualDuration: elapsedDuration(for: activeSession, now: now()),
+                sessionStatus: .completed,
+                actionStatus: .inProgress
+            )
+            lastTimerEvent = .stopped
+            lastTimerActionID = activeSession.actionID
+            reload()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func clearActiveSession() {
+        do {
+            guard let activeSession else { return }
+            let actionStatus = activeSession.actionID.flatMap { actionID in
+                actions.first(where: { $0.id == actionID })?.status
+            } ?? .inProgress
+            try finalize(
+                activeSession: activeSession,
+                actualDuration: 0,
+                sessionStatus: .cancelled,
+                actionStatus: actionStatus
+            )
+            lastTimerEvent = .cleared
+            lastTimerActionID = activeSession.actionID
             reload()
         } catch {
             errorMessage = error.localizedDescription
@@ -305,8 +348,24 @@ final class NowWorkspaceViewModel: ObservableObject {
     }
 
     func markComplete(_ action: Action) {
-        update(action) { updated in
-            updated.status = .completed
+        do {
+            if let activeSession, activeSession.actionID == action.id {
+                try finalize(
+                    activeSession: activeSession,
+                    actualDuration: elapsedDuration(for: activeSession, now: now()),
+                    sessionStatus: .completed,
+                    actionStatus: .completed
+                )
+                lastTimerEvent = .completed
+                lastTimerActionID = action.id
+                reload()
+            } else {
+                update(action) { updated in
+                    updated.status = .completed
+                }
+            }
+        } catch {
+            errorMessage = error.localizedDescription
         }
     }
 
@@ -366,6 +425,64 @@ final class NowWorkspaceViewModel: ObservableObject {
     func setReflectionPM(_ text: String) {
         preferences.reflection.pmReflection = text.isEmpty ? nil : text
         persistPreferences()
+    }
+
+    func setDraftEstimateInputMode(_ mode: NowEstimateInputMode) {
+        draftEstimateInputMode = mode
+    }
+
+    func setRoutinePlanTimes(id: UUID, startDate: Date, endDate: Date) {
+        guard startDate < endDate else {
+            errorMessage = "Routine end time must be after the start time."
+            return
+        }
+        guard let index = routinePlans.firstIndex(where: { $0.id == id }) else { return }
+        routinePlans[index].startDate = startDate
+        routinePlans[index].endDate = endDate
+    }
+
+    func setRoutineBlockCategory(planID: UUID, blockID: UUID, category: NowRoutineCategoryKind) {
+        guard let planIndex = routinePlans.firstIndex(where: { $0.id == planID }),
+              let blockIndex = routinePlans[planIndex].blocks.firstIndex(where: { $0.id == blockID }) else { return }
+        routinePlans[planIndex].blocks[blockIndex].category = category
+    }
+
+    func setRoutineBlockTitle(planID: UUID, blockID: UUID, title: String) {
+        guard let planIndex = routinePlans.firstIndex(where: { $0.id == planID }),
+              let blockIndex = routinePlans[planIndex].blocks.firstIndex(where: { $0.id == blockID }) else { return }
+        routinePlans[planIndex].blocks[blockIndex].title = title
+    }
+
+    func setRoutineBlockDuration(planID: UUID, blockID: UUID, durationMinutes: Int) {
+        guard let planIndex = routinePlans.firstIndex(where: { $0.id == planID }),
+              let blockIndex = routinePlans[planIndex].blocks.firstIndex(where: { $0.id == blockID }) else { return }
+        routinePlans[planIndex].blocks[blockIndex].durationMinutes = max(0, durationMinutes)
+    }
+
+    func setRoutineBlockLinkedAction(planID: UUID, blockID: UUID, actionID: UUID?) {
+        guard let planIndex = routinePlans.firstIndex(where: { $0.id == planID }),
+              let blockIndex = routinePlans[planIndex].blocks.firstIndex(where: { $0.id == blockID }) else { return }
+        routinePlans[planIndex].blocks[blockIndex].linkedActionID = actionID
+        if actionID != nil {
+            routinePlans[planIndex].blocks[blockIndex].linkedProjectID = nil
+        }
+    }
+
+    func setRoutineBlockLinkedProject(planID: UUID, blockID: UUID, projectID: UUID?) {
+        guard let planIndex = routinePlans.firstIndex(where: { $0.id == planID }),
+              let blockIndex = routinePlans[planIndex].blocks.firstIndex(where: { $0.id == blockID }) else { return }
+        routinePlans[planIndex].blocks[blockIndex].linkedProjectID = projectID
+        if projectID != nil {
+            routinePlans[planIndex].blocks[blockIndex].linkedActionID = nil
+        }
+    }
+
+    func moveRoutineBlock(blockID: UUID, to destinationPlanID: UUID) {
+        guard let sourcePlanIndex = routinePlans.firstIndex(where: { $0.blocks.contains(where: { $0.id == blockID }) }),
+              let blockIndex = routinePlans[sourcePlanIndex].blocks.firstIndex(where: { $0.id == blockID }),
+              let destinationPlanIndex = routinePlans.firstIndex(where: { $0.id == destinationPlanID }) else { return }
+        let block = routinePlans[sourcePlanIndex].blocks.remove(at: blockIndex)
+        routinePlans[destinationPlanIndex].blocks.append(block)
     }
 
     func plannedMinutes(for action: Action) -> Int {
@@ -480,6 +597,51 @@ final class NowWorkspaceViewModel: ObservableObject {
         return .violet
     }
 
+    func timerStatusText(for action: Action, now: Date) -> String {
+        if let activeSession, activeSession.actionID == action.id {
+            let planned = max(1, plannedMinutes(for: action))
+            let elapsed = elapsedDuration(for: activeSession, now: now)
+            return elapsed >= Double(planned) * 60 ? "Timer expired" : "Timer running"
+        }
+
+        if lastTimerActionID == action.id, let lastTimerEvent {
+            switch lastTimerEvent {
+            case .running:
+                return "Timer ready"
+            case .expired:
+                return "Timer expired"
+            case .stopped:
+                return "Timer stopped"
+            case .cleared:
+                return "Timer cleared"
+            case .completed:
+                return "Action completed"
+            }
+        }
+
+        switch action.status {
+        case .inbox, .planned:
+            return "Start Action"
+        case .inProgress:
+            return "In progress"
+        case .completed:
+            return "Completed"
+        case .cancelled:
+            return "Cancelled"
+        }
+    }
+
+    func timerProgress(for action: Action, now: Date) -> Double {
+        guard let activeSession, activeSession.actionID == action.id else { return 0 }
+        let planned = Double(max(1, plannedMinutes(for: action)))
+        return min(1, elapsedDuration(for: activeSession, now: now) / (planned * 60))
+    }
+
+    func timerLongPressHint(for action: Action?, now: Date) -> String {
+        guard let action else { return "Select an action first." }
+        return timerStatusText(for: action, now: now) == "Timer running" ? "Hold to continue timing." : "Press and hold to start timing."
+    }
+
     private func upsertGoal(title: String, categoryID: UUID?) throws -> Goal {
         if let existing = goals.first(where: { $0.title.caseInsensitiveCompare(title) == .orderedSame }) {
             guard existing.categoryID != categoryID else { return existing }
@@ -501,6 +663,19 @@ final class NowWorkspaceViewModel: ObservableObject {
         let project = Project(goalID: goalID, title: title, status: .active)
         try repository.save(project)
         return project
+    }
+
+    private func validatedDraftEstimate() throws -> (duration: TimeInterval?, startDate: Date?, endDate: Date?) {
+        switch draftEstimateInputMode {
+        case .duration:
+            let minutes = max(15, draftEstimateMinutes)
+            return (Double(minutes) * 60, nil, nil)
+        case .timeRange:
+            guard draftEstimateEndDate > draftEstimateStartDate else {
+                throw ValidationError.invalidEstimateRange
+            }
+            return (draftEstimateEndDate.timeIntervalSince(draftEstimateStartDate), draftEstimateStartDate, draftEstimateEndDate)
+        }
     }
 
     private func update(_ action: Action, mutation: (inout Action) -> Void) {
@@ -535,17 +710,22 @@ final class NowWorkspaceViewModel: ObservableObject {
         }
     }
 
-    private func finalize(activeSession: FocusSession, completionChoice: NowActionCompletionChoice) throws {
+    private func finalize(
+        activeSession: FocusSession,
+        actualDuration: TimeInterval,
+        sessionStatus: FocusSessionStatus,
+        actionStatus: ActionStatus
+    ) throws {
         let finishedAt = now()
         var completed = activeSession
         completed.endDate = finishedAt
-        completed.actualDuration = max(0, finishedAt.timeIntervalSince(activeSession.startDate))
-        completed.status = .completed
+        completed.actualDuration = max(0, actualDuration)
+        completed.status = sessionStatus
         try repository.save(completed)
 
         if let actionID = activeSession.actionID, let action = actions.first(where: { $0.id == actionID }) {
             var updated = action
-            updated.status = completionChoice == .complete ? .completed : .inProgress
+            updated.status = actionStatus
             updated.updatedAt = finishedAt
             try repository.save(updated)
         }
@@ -623,5 +803,66 @@ final class NowWorkspaceViewModel: ObservableObject {
 
     private func persistPreferences() {
         preferencesStore.save(preferences)
+    }
+
+    private func makeDefaultRoutinePlans(actions: [Action], projects: [Project], now: Date, calendar: Calendar) -> [NowRoutinePlan] {
+        let day = calendar.startOfDay(for: now)
+        let morningStart = calendar.date(bySettingHour: 6, minute: 30, second: 0, of: day) ?? day
+        let morningEnd = calendar.date(bySettingHour: 11, minute: 30, second: 0, of: day) ?? day.addingTimeInterval(5 * 3600)
+        let afternoonStart = morningEnd
+        let afternoonEnd = calendar.date(bySettingHour: 17, minute: 30, second: 0, of: day) ?? day.addingTimeInterval(11 * 3600)
+        let eveningStart = afternoonEnd
+        let eveningEnd = calendar.date(bySettingHour: 22, minute: 30, second: 0, of: day) ?? day.addingTimeInterval(16 * 3600)
+
+        let workAction = actions.first(where: { action in
+            let title = action.title.lowercased()
+            return title.contains("work") || title.contains("draft") || title.contains("plan")
+        })
+        let personalAction = actions.first(where: { action in
+            let title = action.title.lowercased()
+            return title.contains("home") || title.contains("care") || title.contains("rest")
+        })
+        let project = projects.first
+
+        return [
+            NowRoutinePlan(
+                period: .morning,
+                startDate: morningStart,
+                endDate: morningEnd,
+                blocks: [
+                    NowRoutineBlock(title: "Rest / sleep", category: .rest, durationMinutes: 240, linkedActionID: personalAction?.id),
+                    NowRoutineBlock(title: "Fitness / workout", category: .fitness, durationMinutes: 45, linkedActionID: workAction?.id)
+                ]
+            ),
+            NowRoutinePlan(
+                period: .afternoon,
+                startDate: afternoonStart,
+                endDate: afternoonEnd,
+                blocks: [
+                    NowRoutineBlock(title: "Work / projects", category: .work, durationMinutes: 240, linkedProjectID: project?.id),
+                    NowRoutineBlock(title: "Eating", category: .eating, durationMinutes: 90)
+                ]
+            ),
+            NowRoutinePlan(
+                period: .evening,
+                startDate: eveningStart,
+                endDate: eveningEnd,
+                blocks: [
+                    NowRoutineBlock(title: "Personal / other", category: .personal, durationMinutes: 120),
+                    NowRoutineBlock(title: "Rest / sleep", category: .rest, durationMinutes: 180)
+                ]
+            )
+        ]
+    }
+}
+
+private enum ValidationError: LocalizedError {
+    case invalidEstimateRange
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidEstimateRange:
+            return "Estimated end time must be after the start time."
+        }
     }
 }

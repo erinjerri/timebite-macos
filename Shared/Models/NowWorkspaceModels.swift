@@ -26,6 +26,104 @@ enum NowAllocationColorToken: String, CaseIterable, Codable, Identifiable, Senda
     var id: String { rawValue }
 }
 
+enum NowEstimateInputMode: String, CaseIterable, Codable, Identifiable, Sendable {
+    case duration
+    case timeRange
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .duration: "Duration"
+        case .timeRange: "Start / end"
+        }
+    }
+}
+
+enum NowTimerEvent: String, CaseIterable, Codable, Identifiable, Sendable {
+    case running
+    case expired
+    case stopped
+    case cleared
+    case completed
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .running: "Running"
+        case .expired: "Expired"
+        case .stopped: "Stopped"
+        case .cleared: "Cleared"
+        case .completed: "Completed"
+        }
+    }
+}
+
+enum NowRoutinePeriod: String, CaseIterable, Codable, Identifiable, Sendable {
+    case morning
+    case afternoon
+    case evening
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .morning: "Morning"
+        case .afternoon: "Afternoon"
+        case .evening: "PM / evening"
+        }
+    }
+
+    var subtitle: String {
+        switch self {
+        case .morning: "Start-up, recovery, and setup"
+        case .afternoon: "Work, errands, and momentum"
+        case .evening: "Wind-down, care, and closeout"
+        }
+    }
+}
+
+enum NowRoutineCategoryKind: String, CaseIterable, Codable, Identifiable, Sendable {
+    case rest
+    case fitness
+    case eating
+    case work
+    case personal
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .rest: "Rest / sleep"
+        case .fitness: "Fitness / workout"
+        case .eating: "Eating"
+        case .work: "Work / projects"
+        case .personal: "Personal / other"
+        }
+    }
+
+    var tintToken: NowAllocationColorToken {
+        switch self {
+        case .rest: .blue
+        case .fitness: .green
+        case .eating: .gold
+        case .work: .sky
+        case .personal: .violet
+        }
+    }
+
+    var symbolName: String {
+        switch self {
+        case .rest: "bed.double.fill"
+        case .fitness: "figure.strengthtraining.traditional"
+        case .eating: "fork.knife"
+        case .work: "briefcase.fill"
+        case .personal: "person.fill"
+        }
+    }
+}
+
 struct BaselineNeed: Identifiable, Codable, Hashable, Sendable {
     var id: UUID
     var title: String
@@ -68,6 +166,60 @@ struct WeeklyAllocationPreset: Identifiable, Codable, Hashable, Sendable {
         self.weeklyHours = max(0, weeklyHours)
         self.notes = notes
     }
+}
+
+struct NowRoutineBlock: Identifiable, Codable, Hashable, Sendable {
+    var id: UUID
+    var title: String
+    var category: NowRoutineCategoryKind
+    var durationMinutes: Int
+    var linkedActionID: UUID?
+    var linkedProjectID: UUID?
+
+    init(
+        id: UUID = UUID(),
+        title: String,
+        category: NowRoutineCategoryKind,
+        durationMinutes: Int,
+        linkedActionID: UUID? = nil,
+        linkedProjectID: UUID? = nil
+    ) {
+        self.id = id
+        self.title = title
+        self.category = category
+        self.durationMinutes = max(0, durationMinutes)
+        self.linkedActionID = linkedActionID
+        self.linkedProjectID = linkedProjectID
+    }
+
+    var committedHours: Double {
+        Double(durationMinutes) / 60.0
+    }
+}
+
+struct NowRoutinePlan: Identifiable, Codable, Hashable, Sendable {
+    var id: UUID
+    var period: NowRoutinePeriod
+    var startDate: Date
+    var endDate: Date
+    var blocks: [NowRoutineBlock]
+
+    init(
+        id: UUID = UUID(),
+        period: NowRoutinePeriod,
+        startDate: Date,
+        endDate: Date,
+        blocks: [NowRoutineBlock]
+    ) {
+        self.id = id
+        self.period = period
+        self.startDate = startDate
+        self.endDate = endDate
+        self.blocks = blocks
+    }
+
+    var title: String { period.title }
+    var committedMinutes: Int { blocks.reduce(0) { $0 + $1.durationMinutes } }
 }
 
 struct NowWorkspacePreferences: Codable, Hashable, Sendable {
