@@ -3,12 +3,31 @@ import Foundation
 struct GoalCategory: Identifiable, Codable, Hashable, Sendable {
     var id: UUID
     var title: String
+    var colorToken: NowAllocationColorToken
     var createdAt: Date
 
-    init(id: UUID = UUID(), title: String, createdAt: Date = Date()) {
+    init(
+        id: UUID = UUID(),
+        title: String,
+        colorToken: NowAllocationColorToken = .violet,
+        createdAt: Date = Date()
+    ) {
         self.id = id
         self.title = title
+        self.colorToken = colorToken
         self.createdAt = createdAt
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, title, colorToken, createdAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        title = try container.decode(String.self, forKey: .title)
+        colorToken = try container.decodeIfPresent(NowAllocationColorToken.self, forKey: .colorToken) ?? .violet
+        createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
     }
 }
 

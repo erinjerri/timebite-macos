@@ -126,7 +126,10 @@ final class NowWorkspaceViewModel: ObservableObject {
     @Published var draftProjectTitle = ""
     @Published var draftActionTitles = [""]
     @Published var draftEstimateInputMode: NowEstimateInputMode = .duration
-    @Published var draftEstimateMinutes = 45
+    @Published var draftEstimateHoursText = "0"
+    @Published var draftEstimateMinutesText = "45"
+    @Published var draftActualHoursText = "0"
+    @Published var draftActualMinutesText = "0"
     @Published var draftEstimateStartDate = Date()
     @Published var draftEstimateEndDate = Date().addingTimeInterval(45 * 60)
     @Published var selectedActionID: UUID?
@@ -143,6 +146,8 @@ final class NowWorkspaceViewModel: ObservableObject {
     private let calendar: Calendar
     private let now: () -> Date
     private let defaultEstimateMinutes = Int(SchedulingDefaults.defaultBlockDuration / 60)
+    private let manualActualMinutesKey = "timebite.now.manualActualMinutes.v1"
+    private var manualActualMinutesByActionID: [UUID: Int] = [:]
 
     init(
         repository: (any PlanningRepository)? = nil,
@@ -160,20 +165,24 @@ final class NowWorkspaceViewModel: ObservableObject {
         self.categoryStore = categoryStore ?? LocalGoalCategoryStore()
         self.calendar = calendar
         self.now = now
+        self.manualActualMinutesByActionID = Self.loadManualActualMinutes()
         self.preferences = preferencesStore.load()
         self.dailyEntryState = dailyEntryStore.load(for: now(), calendar: calendar)
         if self.preferences.weeklyAllocations.isEmpty || self.preferences.baselineNeeds.isEmpty {
             self.preferences = NowWorkspacePreferences()
             preferencesStore.save(self.preferences)
         }
-        reload()
-        if routinePlans.isEmpty {
-            routinePlans = makeDefaultRoutinePlans(
-                actions: actions,
-                projects: projects,
-                now: now(),
-                calendar: calendar
-            )
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            reload()
+            if routinePlans.isEmpty {
+                routinePlans = makeDefaultRoutinePlans(
+                    actions: actions,
+                    projects: projects,
+                    now: now(),
+                    calendar: calendar
+                )
+            }
         }
     }
 
@@ -209,7 +218,6 @@ final class NowWorkspaceViewModel: ObservableObject {
             draftGoalCategoryID = category.id
         }
         draftNewCategoryTitle = ""
-        objectWillChange.send()
     }
 
     func createGoalDraft() {
@@ -317,6 +325,7 @@ final class NowWorkspaceViewModel: ObservableObject {
             let trimmedGoal = draftGoalTitle.trimmingCharacters(in: .whitespacesAndNewlines)
             let trimmedProject = draftProjectTitle.trimmingCharacters(in: .whitespacesAndNewlines)
             let estimate = try validatedDraftEstimate()
+            let actualMinutes = try validatedDraftActualMinutes()
 
             let goal = trimmedGoal.isEmpty ? nil : try upsertGoal(title: trimmedGoal, categoryID: draftGoalCategoryID)
             let project = trimmedProject.isEmpty ? nil : try upsertProject(title: trimmedProject, goalID: goal?.id)
@@ -337,12 +346,19 @@ final class NowWorkspaceViewModel: ObservableObject {
                 selectedActionID = firstAction.id
                 start(firstAction)
             }
+            for action in savedActions {
+                manualActualMinutesByActionID[action.id] = actualMinutes
+            }
+            saveManualActualMinutes()
             draftActionTitle = ""
             draftProjectTitle = ""
             draftGoalTitle = ""
             draftGoalCategoryID = nil
             draftActionTitles = [""]
-            draftEstimateMinutes = defaultEstimateMinutes
+            draftEstimateHoursText = "\(defaultEstimateMinutes / 60)"
+            draftEstimateMinutesText = "\(defaultEstimateMinutes % 60)"
+            draftActualHoursText = "0"
+            draftActualMinutesText = "0"
             draftEstimateInputMode = .duration
             draftEstimateStartDate = now()
             draftEstimateEndDate = now().addingTimeInterval(Double(defaultEstimateMinutes) * 60)
@@ -596,7 +612,7 @@ final class NowWorkspaceViewModel: ObservableObject {
 
     func actualMinutes(for action: Action, now: Date) -> Int {
         let sessions = sessions.filter { $0.actionID == action.id }
-        return actualMinutes(for: sessions, now: now)
+        return manualActualMinutesByActionID[action.id, default: 0] + actualMinutes(for: sessions, now: now)
     }
 
     func actualMinutes(for actions: [Action], now: Date) -> Int {
@@ -694,6 +710,13 @@ final class NowWorkspaceViewModel: ObservableObject {
     }
 
     func currentSelectionColor(for action: Action) -> NowAllocationColorToken {
+        if let goalID = action.goalID,
+           let goal = goals.first(where: { $0.id == goalID }),
+           let categoryID = goal.categoryID,
+           let category = categoryStore.load().first(where: { $0.id == categoryID }) {
+            return category.colorToken
+        }
+
         let projectTitle = action.projectID.flatMap { id in projects.first(where: { $0.id == id })?.title } ?? ""
         let lower = projectTitle.lowercased()
         if lower.contains("brand") { return .blue }
@@ -706,7 +729,7 @@ final class NowWorkspaceViewModel: ObservableObject {
         if let activeSession, activeSession.actionID == action.id {
             let planned = max(1, plannedMinutes(for: action))
             let elapsed = elapsedDuration(for: activeSession, now: now)
-            return elapsed >= Double(planned) * 60 ? "Timer expired" : "Timer running"
+            return elapsed >= Double(planned) * 60 ? "Timer expired" : "In progress"
         }
 
         if lastTimerActionID == action.id, let lastTimerEvent {
@@ -744,7 +767,8 @@ final class NowWorkspaceViewModel: ObservableObject {
 
     func timerLongPressHint(for action: Action?, now: Date) -> String {
         guard let action else { return "Select an action first." }
-        return timerStatusText(for: action, now: now) == "Timer running" ? "Hold to continue timing." : "Press and hold to start timing."
+        let isRunning = activeSession?.actionID == action.id
+        return isRunning ? "Hold to continue timing." : "Press and hold to start timing."
     }
 
     private func upsertGoal(title: String, categoryID: UUID?) throws -> Goal {
@@ -773,7 +797,13 @@ final class NowWorkspaceViewModel: ObservableObject {
     private func validatedDraftEstimate() throws -> (duration: TimeInterval?, startDate: Date?, endDate: Date?) {
         switch draftEstimateInputMode {
         case .duration:
-            let minutes = max(15, draftEstimateMinutes)
+            guard let minutes = enteredDurationMinutes(
+                hoursText: draftEstimateHoursText,
+                minutesText: draftEstimateMinutesText,
+                minimum: 15
+            ) else {
+                throw ValidationError.invalidEstimateDuration
+            }
             return (Double(minutes) * 60, nil, nil)
         case .timeRange:
             guard draftEstimateEndDate > draftEstimateStartDate else {
@@ -781,6 +811,42 @@ final class NowWorkspaceViewModel: ObservableObject {
             }
             return (draftEstimateEndDate.timeIntervalSince(draftEstimateStartDate), draftEstimateStartDate, draftEstimateEndDate)
         }
+    }
+
+    private func validatedDraftActualMinutes() throws -> Int {
+        guard let minutes = enteredDurationMinutes(
+            hoursText: draftActualHoursText,
+            minutesText: draftActualMinutesText,
+            minimum: 0
+        ) else {
+            throw ValidationError.invalidActualDuration
+        }
+        return minutes
+    }
+
+    private func enteredDurationMinutes(hoursText: String, minutesText: String, minimum: Int) -> Int? {
+        guard let hours = Int(hoursText.trimmingCharacters(in: .whitespacesAndNewlines)),
+              let minutes = Int(minutesText.trimmingCharacters(in: .whitespacesAndNewlines)),
+              hours >= 0,
+              (0...59).contains(minutes) else { return nil }
+        let total = hours * 60 + minutes
+        return total >= minimum ? total : nil
+    }
+
+    private static func loadManualActualMinutes() -> [UUID: Int] {
+        guard let data = UserDefaults.standard.data(forKey: "timebite.now.manualActualMinutes.v1"),
+              let stored = try? JSONDecoder().decode([String: Int].self, from: data) else { return [:] }
+        return Dictionary(uniqueKeysWithValues: stored.compactMap { key, value in
+            guard let id = UUID(uuidString: key) else { return nil }
+            return (id, max(0, value))
+        })
+    }
+
+    private func saveManualActualMinutes() {
+        let stored = manualActualMinutesByActionID.reduce(into: [String: Int]()) { result, entry in
+            result[entry.key.uuidString] = entry.value
+        }
+        UserDefaults.standard.set(try? JSONEncoder().encode(stored), forKey: manualActualMinutesKey)
     }
 
     private func update(_ action: Action, mutation: (inout Action) -> Void) {
@@ -1008,11 +1074,17 @@ final class NowWorkspaceViewModel: ObservableObject {
 
 private enum ValidationError: LocalizedError {
     case invalidEstimateRange
+    case invalidEstimateDuration
+    case invalidActualDuration
 
     var errorDescription: String? {
         switch self {
         case .invalidEstimateRange:
             return "Estimated end time must be after the start time."
+        case .invalidEstimateDuration:
+            return "Enter an estimate of at least 15 minutes using valid hours and minutes."
+        case .invalidActualDuration:
+            return "Enter actual time using valid hours and minutes."
         }
     }
 }

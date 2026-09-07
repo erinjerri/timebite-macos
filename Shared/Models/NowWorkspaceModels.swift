@@ -60,6 +60,28 @@ enum NowTimerEvent: String, CaseIterable, Codable, Identifiable, Sendable {
     }
 }
 
+struct TimeRingSegment: Identifiable, Hashable, Sendable {
+    let id: String
+    let title: String
+    let startMinutes: Int
+    let durationMinutes: Int
+    let colorToken: NowAllocationColorToken
+
+    init(
+        id: String,
+        title: String,
+        startMinutes: Int,
+        durationMinutes: Int,
+        colorToken: NowAllocationColorToken
+    ) {
+        self.id = id
+        self.title = title
+        self.startMinutes = max(0, startMinutes)
+        self.durationMinutes = max(0, durationMinutes)
+        self.colorToken = colorToken
+    }
+}
+
 enum NowRoutinePeriod: String, CaseIterable, Codable, Identifiable, Sendable {
     case morning
     case afternoon
@@ -71,7 +93,7 @@ enum NowRoutinePeriod: String, CaseIterable, Codable, Identifiable, Sendable {
         switch self {
         case .morning: "Morning"
         case .afternoon: "Afternoon"
-        case .evening: "PM / evening"
+        case .evening: "Evening"
         }
     }
 
@@ -79,7 +101,7 @@ enum NowRoutinePeriod: String, CaseIterable, Codable, Identifiable, Sendable {
         switch self {
         case .morning: "Start-up, recovery, and setup"
         case .afternoon: "Work, errands, and momentum"
-        case .evening: "Wind-down, care, and closeout"
+        case .evening: "Dinner, movement, and wind-down"
         }
     }
 }

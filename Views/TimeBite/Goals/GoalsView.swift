@@ -41,8 +41,20 @@ struct GoalsView: View {
 
                 ForEach(categories) { category in
                     HStack(spacing: 10) {
-                        Image(systemName: "tag")
-                            .foregroundStyle(TimeBitePalette.violet)
+                        Menu {
+                            ForEach(NowAllocationColorToken.allCases) { token in
+                                Button {
+                                    updateCategoryColor(category.id, token: token)
+                                } label: {
+                                    Label(token.rawValue.capitalized, systemImage: "circle.fill")
+                                }
+                            }
+                        } label: {
+                            Image(systemName: "tag.fill")
+                                .foregroundStyle(color(for: category.colorToken))
+                        }
+                        .menuStyle(.borderlessButton)
+                        .help("Change category color")
                         Text(category.title)
                         Spacer()
                         Text("\(goals.filter { $0.categoryID == category.id }.count) goals")
@@ -81,7 +93,7 @@ struct GoalsView: View {
                     ForEach(goals) { goal in
                         HStack(alignment: .top, spacing: 10) {
                             Image(systemName: "circle")
-                                .foregroundStyle(TimeBitePalette.teal)
+                                .foregroundStyle(color(for: category(for: goal)?.colorToken ?? .neutral))
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(goal.title)
                                     .font(TimeBiteTypography.font(.headline, weight: .semibold))
@@ -158,6 +170,28 @@ struct GoalsView: View {
 
     private func categoryTitle(for goal: Goal) -> String? {
         goal.categoryID.flatMap { id in categories.first(where: { $0.id == id })?.title }
+    }
+
+    private func category(for goal: Goal) -> GoalCategory? {
+        goal.categoryID.flatMap { id in categories.first(where: { $0.id == id }) }
+    }
+
+    private func updateCategoryColor(_ id: UUID, token: NowAllocationColorToken) {
+        guard let index = categories.firstIndex(where: { $0.id == id }) else { return }
+        categories[index].colorToken = token
+        categoryStore.save(categories)
+    }
+
+    private func color(for token: NowAllocationColorToken) -> Color {
+        switch token {
+        case .blue: TimeBitePalette.blue
+        case .green: TimeBitePalette.green
+        case .gold: TimeBitePalette.gold
+        case .violet: TimeBitePalette.violet
+        case .teal: TimeBitePalette.teal
+        case .sky: TimeBitePalette.sky
+        case .neutral: TimeBitePalette.secondaryText(for: colorScheme)
+        }
     }
 
     private func sleepSummary(for snapshot: HealthSnapshot) -> String {

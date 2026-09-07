@@ -1,5 +1,8 @@
 import SwiftUI
 import UniformTypeIdentifiers
+#if os(macOS)
+import AppKit
+#endif
 
 private enum NowQuickCaptureFocusField {
     case sleepHours
@@ -9,6 +12,7 @@ private enum NowQuickCaptureFocusField {
 struct NowView: View {
     @Environment(\.colorScheme) private var colorScheme
     @StateObject private var model: NowWorkspaceViewModel
+    @StateObject private var speechInput = NowSpeechDictationController()
     @StateObject private var health = HealthDataService.shared
     @State private var isCreatingCategory = false
     @State private var showingHealthSetup = false
@@ -51,6 +55,9 @@ struct NowView: View {
                 quickCaptureFocus = .action
             }
         }
+        .onChange(of: speechInput.composedText) { _, newValue in
+            quickActionText = newValue
+        }
         .sheet(isPresented: $showingHealthSetup) {
             HealthSetupSheet()
         }
@@ -87,9 +94,8 @@ struct NowView: View {
                 healthCard
             }
 
-            captureFlowCard
+            captureFlowCard(now: now)
             compactTimerAndTaskCluster(now: now)
-            routinePlanningCard
             checklistCard(now: now)
             weeklyPlanCard(now: now)
         }
@@ -164,7 +170,7 @@ struct NowView: View {
         return hours > 0 ? "\(hours)h \(remainingMinutes)m" : "\(remainingMinutes)m"
     }
 
-    private var captureFlowCard: some View {
+    private func captureFlowCard(now: Date) -> some View {
         DashboardCard(
             title: model.isSleepPromptVisible ? "Start the day" : "Create action",
             systemImage: "square.and.pencil",
@@ -176,96 +182,95 @@ struct NowView: View {
                     Divider()
                 }
 
-                quickActionSection
+                quickActionSection(now: now)
             }
         }
     }
 
     @ViewBuilder
-    private func actionTimerCard(now: Date) -> some View {
+    private func actionTimerContent(now: Date) -> some View {
         let focusAction = model.activeAction ?? model.selectedAction
         let estimatedMinutes = focusAction.map { max(15, model.plannedMinutes(for: $0)) } ?? 30
         let actualMinutes = focusAction.map { model.actualMinutes(for: $0, now: now) } ?? 0
         let progress = ActivityProgressCalculator().calculate(completed: actualMinutes, planned: estimatedMinutes).normalizedProgress
         let session = model.activeSession
 
-        DashboardCard(
-            title: session == nil ? "Action timer" : "Action running",
-            systemImage: "timer",
-            tint: session == nil ? TimeBitePalette.blue : TimeBitePalette.green
-        ) {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(alignment: .top, spacing: 14) {
-                    TimerDialView(
-                        progress: progress,
-                        accentColor: session == nil ? TimeBitePalette.blue : TimeBitePalette.green,
-                        primaryLabel: session == nil ? "Hold" : "\(Int(progress * 100))%",
-                        secondaryLabel: focusAction.map { model.timerStatusText(for: $0, now: now) } ?? "Press and hold",
-                        isRunning: session != nil,
-                        isEnabled: focusAction != nil,
-                        onLongPress: {
-                            if let focusAction {
-                                model.start(focusAction)
-                            }
-                        }
-                    )
-                    .frame(width: 132, height: 132)
-
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text(focusAction?.title ?? "Create an action below.")
-                            .font(TimeBiteTypography.font(.headline, weight: .semibold))
-                            .lineLimit(2)
-                        hierarchyLine(for: focusAction)
-                        LiveElapsedText(startDate: session?.startDate)
-                            .font(TimeBiteTypography.font(.callout, weight: .medium))
-                            .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
-                        Text(model.timerLongPressHint(for: focusAction, now: now))
-                            .font(TimeBiteTypography.font(.caption))
-                            .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
-                        HStack(spacing: 10) {
-                            StatPill(label: "Estimate", value: estimatedMinutes.timeBiteDuration, tint: TimeBitePalette.blue)
-                            StatPill(label: "Actual", value: actualMinutes.timeBiteDuration, tint: TimeBitePalette.green)
-                        }
+        VStack(alignment: .center, spacing: 12) {
+            TimerDialView(
+                progress: progress,
+                accentColor: session == nil ? TimeBitePalette.blue : TimeBitePalette.green,
+                primaryLabel: actualMinutes.actionClockDuration,
+                secondaryLabel: focusAction.map { _ in "\(estimatedMinutes.actionClockDuration) planned" } ?? "Select an action",
+                isRunning: session != nil,
+                isEnabled: focusAction != nil,
+                onLongPress: {
+                    if let focusAction {
+                        model.start(focusAction)
                     }
                 }
+            )
+            .frame(width: 158, height: 158)
 
-                if session == nil {
-                    Text("Hold the play button in the ring to start the selected action.")
-                        .font(TimeBiteTypography.font(.caption))
-                        .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
-                } else {
-                    HStack(spacing: 10) {
-                        Button {
-                            if let focusAction {
-                                model.markComplete(focusAction)
-                            }
-                        } label: {
-                            Label("Complete action", systemImage: "checkmark.square")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(focusAction == nil)
+            Text(focusAction?.title ?? "Create an action")
+                .font(TimeBiteTypography.font(.headline, weight: .semibold))
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
 
-                        Button {
-                            model.stopActiveSession()
-                        } label: {
-                            Label("Stop timer", systemImage: "stop.fill")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.borderedProminent)
+            hierarchyLine(for: focusAction)
 
-                        Button {
-                            model.clearActiveSession()
-                        } label: {
-                            Label("Clear timer", systemImage: "xmark.square")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.bordered)
-                        .help("Reset the timer without completing the action.")
+            if session == nil {
+                Button {
+                    if let focusAction {
+                        model.start(focusAction)
                     }
+                } label: {
+                    Label("Start action timer", systemImage: "play.fill")
+                        .frame(minWidth: 180)
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(focusAction == nil)
+            } else {
+                LiveElapsedText(startDate: session?.startDate)
+                    .font(TimeBiteTypography.font(.callout, weight: .medium))
+                    .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
+
+                HStack(spacing: 10) {
+                    Button {
+                        if let focusAction {
+                            model.markComplete(focusAction)
+                        }
+                    } label: {
+                        Label("Complete action", systemImage: "checkmark.square")
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                    Button {
+                        model.stopActiveSession()
+                    } label: {
+                        Label("Stop timer", systemImage: "stop.fill")
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                    Button {
+                        model.clearActiveSession()
+                    } label: {
+                        Label("Clear timer", systemImage: "xmark.square")
+                    }
+                    .buttonStyle(.bordered)
+                    .help("Reset the timer without completing the action.")
                 }
             }
+
+            Text(model.timerLongPressHint(for: focusAction, now: now))
+                .font(TimeBiteTypography.font(.caption))
+                .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
+
+            HStack(spacing: 10) {
+                StatPill(label: "Estimate", value: estimatedMinutes.timeBiteDuration, tint: TimeBitePalette.blue)
+                StatPill(label: "Actual", value: actualMinutes.timeBiteDuration, tint: TimeBitePalette.green)
+            }
         }
+        .frame(maxWidth: .infinity)
     }
 
     private var sleepPromptSection: some View {
@@ -336,7 +341,7 @@ struct NowView: View {
         }
     }
 
-    private var quickActionSection: some View {
+    private func quickActionSection(now: Date) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Create action")
                 .font(TimeBiteTypography.font(.headline, weight: .semibold))
@@ -351,7 +356,7 @@ struct NowView: View {
                     .frame(minHeight: 104)
 
                 if quickActionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    Text("Type one action, or paste a batch from another app.")
+                    Text("Type one action, dictate it, or paste a batch from another app.")
                         .font(TimeBiteTypography.font(.callout))
                         .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
                         .padding(12)
@@ -378,34 +383,83 @@ struct NowView: View {
                 }
             }
 
-            HStack(spacing: 10) {
-                Button {
-                    commitQuickActions()
-                } label: {
-                    Label("Add", systemImage: "plus.circle.fill")
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(quickActionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 10) {
+                    Button {
+                        commitQuickActions()
+                    } label: {
+                        Image(systemName: "arrow.up.circle.fill")
+                            .font(.system(size: 16, weight: .semibold))
+                            .frame(width: 34, height: 34)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .disabled(quickActionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .accessibilityLabel("Create action")
+                    .help("Create action")
+
+                    Button {
+                        speechInput.toggleDictation(currentText: quickActionText)
+                    } label: {
+                        ZStack {
+                            Circle()
+                                .fill(speechInput.isActive ? speechInput.buttonTint.opacity(0.15) : Color.clear)
+                                .frame(width: 34, height: 34)
+
+                            Image(systemName: "waveform.badge.mic")
+                                .font(.system(size: 16, weight: .semibold))
+                                .symbolRenderingMode(.hierarchical)
+                                .foregroundStyle(speechInput.buttonTint)
+                                .scaleEffect(speechInput.state == .listening ? 1.08 : 1.0)
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                    .accessibilityLabel(speechInput.isActive ? "Stop dictation" : "Start dictation")
+                    .help(speechInput.isActive ? "Stop dictation" : "Start dictation")
+                    .animation(.easeInOut(duration: 0.2), value: speechInput.state)
 
 #if canImport(Vision)
-                Button {
-                    showingPhotoCaptureImporter = true
-                } label: {
-                    Label("Scan photo", systemImage: "camera.viewfinder")
-                }
-                .buttonStyle(.bordered)
+                    Button {
+                        showingPhotoCaptureImporter = true
+                    } label: {
+                        Image(systemName: "doc.on.clipboard")
+                            .font(.system(size: 16, weight: .semibold))
+                            .frame(width: 34, height: 34)
+                    }
+                    .buttonStyle(.bordered)
 #endif
 
-                Spacer(minLength: 8)
+                    Spacer(minLength: 8)
+                }
 
-                Text("Paste, drop, or scan a photo.")
-                    .font(TimeBiteTypography.font(.caption))
-                    .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
+                if let statusText = speechInput.statusText {
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(speechInput.buttonTint)
+                            .frame(width: 7, height: 7)
+                        Text(statusText)
+                            .font(TimeBiteTypography.font(.caption))
+                            .foregroundStyle(speechInput.buttonTint)
+                    }
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+                } else {
+                    Text("Paste, drop, or dictate.")
+                        .font(TimeBiteTypography.font(.caption))
+                        .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
+                }
             }
+
+            Divider()
+            actionTimerContent(now: now)
         }
     }
 
     private func commitQuickActions() {
+        if speechInput.isActive {
+            speechInput.stopDictation()
+            quickActionText = speechInput.composedText
+        }
         let trimmed = quickActionText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         model.captureQuickActions(from: trimmed)
@@ -414,95 +468,27 @@ struct NowView: View {
     }
 
     private func compactTimerAndTaskCluster(now: Date) -> some View {
-        let morningPlan = model.routinePlans.first
-        let eveningPlan = model.routinePlans.last
-
         return ViewThatFits(in: .horizontal) {
             HStack(alignment: .top, spacing: 12) {
                 compactDailyTimerCard(now: now)
-                compactActionTimerCard(now: now)
-                VStack(spacing: 12) {
-                    if let morningPlan {
-                        compactRoutineTimerCard(title: "AM", plan: morningPlan, accent: TimeBitePalette.sky, now: now)
-                    }
-                    if let eveningPlan {
-                        compactRoutineTimerCard(title: "PM", plan: eveningPlan, accent: TimeBitePalette.violet, now: now)
-                    }
-                }
+                routinePlanningCard
                 compactTaskQueue(now: now)
             }
 
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .top, spacing: 12) {
                     compactDailyTimerCard(now: now)
-                    compactActionTimerCard(now: now)
-                }
-                HStack(alignment: .top, spacing: 12) {
-                    if let morningPlan {
-                        compactRoutineTimerCard(title: "AM", plan: morningPlan, accent: TimeBitePalette.sky, now: now)
-                    }
-                    if let eveningPlan {
-                        compactRoutineTimerCard(title: "PM", plan: eveningPlan, accent: TimeBitePalette.violet, now: now)
-                    }
+                    routinePlanningCard
                 }
                 compactTaskQueue(now: now)
             }
 
             VStack(alignment: .leading, spacing: 12) {
                 compactDailyTimerCard(now: now)
-                compactActionTimerCard(now: now)
-                HStack(alignment: .top, spacing: 12) {
-                    if let morningPlan {
-                        compactRoutineTimerCard(title: "AM", plan: morningPlan, accent: TimeBitePalette.sky, now: now)
-                    }
-                    if let eveningPlan {
-                        compactRoutineTimerCard(title: "PM", plan: eveningPlan, accent: TimeBitePalette.violet, now: now)
-                    }
-                }
+                routinePlanningCard
                 compactTaskQueue(now: now)
             }
         }
-    }
-
-    private func compactActionTimerCard(now: Date) -> some View {
-        let focusAction = model.activeAction ?? model.selectedAction
-        let estimatedMinutes = focusAction.map { max(15, model.plannedMinutes(for: $0)) } ?? 30
-        let actualMinutes = focusAction.map { model.actualMinutes(for: $0, now: now) } ?? 0
-        let progress = ActivityProgressCalculator().calculate(completed: actualMinutes, planned: estimatedMinutes).normalizedProgress
-        let session = model.activeSession
-        let tint = session == nil ? TimeBitePalette.blue : TimeBitePalette.green
-
-        return DashboardCard(title: session == nil ? "Action" : "Running", systemImage: "timer", tint: tint) {
-            VStack(alignment: .leading, spacing: 10) {
-                TimerDialView(
-                    progress: progress,
-                    accentColor: tint,
-                    primaryLabel: session == nil ? "Hold" : "\(Int(progress * 100))%",
-                    secondaryLabel: focusAction.map { model.timerStatusText(for: $0, now: now) } ?? "Ready",
-                    isRunning: session != nil,
-                    isEnabled: focusAction != nil,
-                    onLongPress: {
-                        if let focusAction { model.start(focusAction) }
-                    }
-                )
-                .frame(width: 96, height: 96)
-                .frame(maxWidth: .infinity, alignment: .center)
-
-                Text(focusAction?.title ?? "Create an action below")
-                    .font(TimeBiteTypography.font(.caption, weight: .semibold))
-                    .lineLimit(2)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                if session != nil {
-                    Button("Complete") {
-                        if let focusAction { model.markComplete(focusAction) }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .frame(maxWidth: .infinity)
-                }
-            }
-        }
-        .frame(width: 150)
     }
 
     private func compactTaskQueue(now: Date) -> some View {
@@ -516,21 +502,47 @@ struct NowView: View {
                         .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
                 } else {
                     ForEach(tasks) { action in
-                        Button {
-                            model.selectedActionID = action.id
-                        } label: {
-                            HStack(spacing: 7) {
-                                Circle()
-                                    .fill(model.selectedActionID == action.id ? TimeBitePalette.blue : TimeBitePalette.border(for: colorScheme))
-                                    .frame(width: 7, height: 7)
+                        HStack(spacing: 8) {
+                            RoundedRectangle(cornerRadius: 2, style: .continuous)
+                                .fill(color(for: model.currentSelectionColor(for: action)))
+                                .frame(width: 4, height: 28)
+
+                            Button {
+                                model.selectedActionID = action.id
+                            } label: {
                                 Text(action.title)
                                     .font(TimeBiteTypography.font(.caption, weight: .medium))
                                     .lineLimit(1)
-                                Spacer(minLength: 0)
                             }
-                            .contentShape(Rectangle())
+                            .buttonStyle(.plain)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                            Button {
+                                model.start(action)
+                            } label: {
+                                Image(systemName: model.activeAction?.id == action.id ? "play.fill" : "play.circle.fill")
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundStyle(color(for: model.currentSelectionColor(for: action)))
+                            }
+                            .buttonStyle(.borderless)
+                            .help("Start \(action.title)")
                         }
-                        .buttonStyle(.plain)
+                        .padding(.vertical, 5)
+                        .padding(.horizontal, 4)
+                        .background(
+                            model.selectedActionID == action.id
+                                ? color(for: model.currentSelectionColor(for: action)).opacity(0.10)
+                                : Color.clear,
+                            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        )
+                        .contentShape(Rectangle())
+                        .onHover { hovering in
+                            if hovering {
+                                NSCursor.pointingHand.push()
+                            } else {
+                                NSCursor.pop()
+                            }
+                        }
                     }
                 }
                 if model.incompleteActions.count > tasks.count {
@@ -547,18 +559,16 @@ struct NowView: View {
         let lanes = model.dailyLanes(now: now)
         let plannedMinutes = lanes.reduce(0) { $0 + $1.plannedMinutes }
         let actualMinutes = lanes.reduce(0) { $0 + $1.actualMinutes }
-        let progress = min(Double(plannedMinutes) / Double(24 * 60), 1)
         let sleepMinutes = model.sleepMinutesForToday
 
         return DashboardCard(title: "Daily timer", systemImage: "clock", tint: TimeBitePalette.green) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .top, spacing: 14) {
-                    ActivityRingView(
-                        progress: progress,
-                        accentColor: TimeBitePalette.green,
+                    SegmentedDayRing(
+                        segments: dailyRingSegments(),
                         primaryLabel: plannedMinutes.timeBiteDuration,
                         secondaryLabel: "day",
-                        lineWidth: 11
+                        color: color(for:)
                     )
                     .frame(width: 110, height: 110)
 
@@ -594,39 +604,6 @@ struct NowView: View {
             }
         }
         .frame(maxWidth: 270)
-    }
-
-    private func compactRoutineTimerCard(title: String, plan: NowRoutinePlan, accent: Color, now: Date) -> some View {
-        let activeMinutes = currentRoutineMinutes(for: plan, now: now)
-        let totalMinutes = max(plan.committedMinutes, 1)
-        let progress = min(Double(activeMinutes) / Double(totalMinutes), 1)
-
-        return DashboardCard(title: title, systemImage: "timer", tint: accent) {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(alignment: .center, spacing: 12) {
-                    ActivityRingView(
-                        progress: progress,
-                        accentColor: accent,
-                        primaryLabel: plan.committedMinutes.timeBiteDuration,
-                        secondaryLabel: plan.period.title,
-                        lineWidth: 8
-                    )
-                    .frame(width: 74, height: 74)
-
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(timeWindowText(for: plan))
-                            .font(TimeBiteTypography.font(.caption, weight: .semibold))
-                            .lineLimit(2)
-                        Text("\(plan.blocks.count) blocks")
-                            .font(TimeBiteTypography.font(.caption))
-                            .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
-                    }
-                }
-
-                StatPill(label: "Now", value: activeMinutes.timeBiteDuration, tint: accent)
-            }
-        }
-        .frame(maxWidth: 220, alignment: .leading)
     }
 
     private func parsedSleepHours(from rawValue: String) -> Int? {
@@ -863,6 +840,9 @@ struct NowView: View {
                                                 onSelect: {
                                                     model.selectedActionID = action.id
                                                 },
+                                                onStart: {
+                                                    model.start(action)
+                                                },
                                                 onToggleComplete: { completed in
                                                     if completed {
                                                         model.markComplete(action)
@@ -886,7 +866,7 @@ struct NowView: View {
                         Divider()
 
                         VStack(alignment: .leading, spacing: 10) {
-                            Text("Inbox actions")
+                            Text("Actions")
                                 .font(TimeBiteTypography.font(.headline, weight: .semibold))
 
                             ForEach(model.looseActions) { action in
@@ -901,6 +881,9 @@ struct NowView: View {
                                     isRunning: model.activeAction?.id == action.id,
                                     onSelect: {
                                         model.selectedActionID = action.id
+                                    },
+                                    onStart: {
+                                        model.start(action)
                                     },
                                     onToggleComplete: { completed in
                                         if completed {
@@ -918,103 +901,33 @@ struct NowView: View {
         }
     }
 
-    private func dailyTimerCard(now: Date) -> some View {
-        let lanes = model.dailyLanes(now: now)
-        let plannedMinutes = lanes.reduce(0) { $0 + $1.plannedMinutes }
-        let actualMinutes = lanes.reduce(0) { $0 + $1.actualMinutes }
-        let progress = min(Double(plannedMinutes) / Double(24 * 60), 1)
+    private func dailyRingSegments() -> [TimeRingSegment] {
+        let plans = model.routinePlans
+        var segments = [TimeRingSegment(
+            id: "sleep",
+            title: "Sleep",
+            startMinutes: 0,
+            durationMinutes: model.sleepMinutesForToday,
+            colorToken: .violet
+        )]
 
-        return DashboardCard(title: "Daily timer", systemImage: "clock", tint: TimeBitePalette.green) {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack(alignment: .center, spacing: 18) {
-                    ActivityRingView(
-                        progress: progress,
-                        accentColor: TimeBitePalette.green,
-                        primaryLabel: plannedMinutes.timeBiteDuration,
-                        secondaryLabel: "of 24 hours",
-                        lineWidth: 14
-                    )
-                    .frame(width: 132, height: 132)
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Committed time is grouped into the whole day so you can scan what is already allocated at a glance.")
-                            .font(TimeBiteTypography.font(.title3, weight: .semibold))
-                        Text("Baseline, project targets, and remaining time stay editable and clearly labeled.")
-                            .font(TimeBiteTypography.font(.callout))
-                            .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
-                        HStack(spacing: 10) {
-                            StatPill(label: "Planned", value: plannedMinutes.timeBiteDuration, tint: TimeBitePalette.green)
-                            StatPill(label: "Actual", value: actualMinutes.timeBiteDuration, tint: TimeBitePalette.sky)
-                        }
-                    }
-                }
-
-                VStack(alignment: .leading, spacing: 10) {
-                    ForEach(lanes) { lane in
-                        LaneSummaryRow(summary: lane, color: color(for: lane.colorToken))
-                    }
-                }
+        for plan in plans {
+            let components = Calendar.current.dateComponents([.hour, .minute], from: plan.startDate)
+            let startMinutes = (components.hour ?? 0) * 60 + (components.minute ?? 0)
+            let token: NowAllocationColorToken = switch plan.period {
+            case .morning: .sky
+            case .afternoon: .teal
+            case .evening: .gold
             }
+            segments.append(TimeRingSegment(
+                id: plan.id.uuidString,
+                title: plan.title,
+                startMinutes: startMinutes,
+                durationMinutes: Int(plan.endDate.timeIntervalSince(plan.startDate) / 60),
+                colorToken: token
+            ))
         }
-    }
-
-    private func amPmTimersCard(now: Date) -> some View {
-        let morningPlan = model.routinePlans.first
-        let eveningPlan = model.routinePlans.last
-
-        return HStack(alignment: .top, spacing: 18) {
-            if let morningPlan {
-                routineSummaryCard(
-                    title: "AM timer",
-                    plan: morningPlan,
-                    accent: TimeBitePalette.sky,
-                    now: now
-                )
-            }
-
-            if let eveningPlan {
-                routineSummaryCard(
-                    title: "PM timer",
-                    plan: eveningPlan,
-                    accent: TimeBitePalette.violet,
-                    now: now
-                )
-            }
-        }
-    }
-
-    private func routineSummaryCard(title: String, plan: NowRoutinePlan, accent: Color, now: Date) -> some View {
-        let activeMinutes = currentRoutineMinutes(for: plan, now: now)
-        let totalMinutes = max(plan.committedMinutes, 1)
-        let progress = min(Double(activeMinutes) / Double(totalMinutes), 1)
-
-        return DashboardCard(title: title, systemImage: "timer", tint: accent) {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .top, spacing: 14) {
-                    ActivityRingView(
-                        progress: progress,
-                        accentColor: accent,
-                        primaryLabel: plan.committedMinutes.timeBiteDuration,
-                        secondaryLabel: plan.period.title,
-                        lineWidth: 10
-                    )
-                    .frame(width: 92, height: 92)
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(timeWindowText(for: plan))
-                            .font(TimeBiteTypography.font(.headline, weight: .semibold))
-                        Text("\(plan.blocks.count) blocks · \(plan.committedMinutes.timeBiteDuration) planned")
-                            .font(TimeBiteTypography.font(.callout))
-                            .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
-                    }
-                }
-
-                HStack(spacing: 10) {
-                    StatPill(label: "Active", value: activeMinutes.timeBiteDuration, tint: accent)
-                    StatPill(label: "Blocks", value: "\(plan.blocks.count)", tint: accent)
-                }
-            }
-        }
+        return segments
     }
 
     private var baselineCard: some View {
@@ -1188,18 +1101,6 @@ struct NowView: View {
             .background(TimeBitePalette.gold.opacity(0.10), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
-    private func currentRoutineMinutes(for plan: NowRoutinePlan, now: Date) -> Int {
-        guard now >= plan.startDate else { return 0 }
-        if now >= plan.endDate { return plan.committedMinutes }
-        return min(plan.committedMinutes, Int(now.timeIntervalSince(plan.startDate) / 60))
-    }
-
-    private func timeWindowText(for plan: NowRoutinePlan) -> String {
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        return "\(formatter.string(from: plan.startDate)) - \(formatter.string(from: plan.endDate))"
-    }
-
     private func hierarchyLine(for action: Action?) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             if let action {
@@ -1266,6 +1167,9 @@ struct NowView: View {
                         onSelect: {
                             model.selectedActionID = action.id
                         },
+                        onStart: {
+                            model.start(action)
+                        },
                         onToggleComplete: { completed in
                             if completed {
                                 model.markComplete(action)
@@ -1323,17 +1227,11 @@ struct NowView: View {
             }
 
             if model.draftEstimateInputMode == .duration {
-                Stepper(
-                    value: $model.draftEstimateMinutes,
-                    in: 15...480,
-                    step: 15
-                ) {
-                    HStack {
-                        Text("Duration")
-                        Spacer()
-                        Text("\(model.draftEstimateMinutes) min")
-                    }
-                }
+                durationEntryRow(
+                    title: "Estimate",
+                    hours: $model.draftEstimateHoursText,
+                    minutes: $model.draftEstimateMinutesText
+                )
             } else {
                 HStack(spacing: 12) {
                     DatePicker("Start", selection: $model.draftEstimateStartDate, displayedComponents: .hourAndMinute)
@@ -1347,7 +1245,13 @@ struct NowView: View {
                     .foregroundStyle(model.draftEstimateEndDate > model.draftEstimateStartDate ? TimeBitePalette.secondaryText(for: colorScheme) : TimeBitePalette.gold)
             }
 
-            Text(model.draftEstimateInputMode == .duration ? "User-entered estimate." : "Time-window estimate.")
+            durationEntryRow(
+                title: "Actual",
+                hours: $model.draftActualHoursText,
+                minutes: $model.draftActualMinutesText
+            )
+
+            Text(model.draftEstimateInputMode == .duration ? "Enter the planned duration directly." : "The estimate uses the selected time window.")
                 .font(TimeBiteTypography.font(.caption))
                 .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
         }
@@ -1355,10 +1259,30 @@ struct NowView: View {
         .background(TimeBitePalette.elevatedSurface(for: colorScheme), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
+    private func durationEntryRow(title: String, hours: Binding<String>, minutes: Binding<String>) -> some View {
+        HStack(spacing: 8) {
+            Text(title)
+                .font(TimeBiteTypography.font(.callout, weight: .medium))
+            Spacer()
+            TextField("0", text: hours)
+                .textFieldStyle(.roundedBorder)
+                .multilineTextAlignment(.trailing)
+                .frame(width: 54)
+            Text("hr")
+                .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
+            TextField("00", text: minutes)
+                .textFieldStyle(.roundedBorder)
+                .multilineTextAlignment(.trailing)
+                .frame(width: 54)
+            Text("min")
+                .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
+        }
+    }
+
     private var routinePlanningCard: some View {
         DashboardCard(title: "Routine planning", systemImage: "square.grid.3x3", tint: TimeBitePalette.violet) {
             VStack(alignment: .leading, spacing: 12) {
-                Text("Morning, afternoon, and PM/evening blocks are customizable, draggable, and linked to actions or projects.")
+                Text("AM, Midday, and Evening blocks are customizable, draggable, and linked to actions or projects.")
                     .font(TimeBiteTypography.font(.callout))
                     .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
 
@@ -1552,6 +1476,7 @@ private struct ActionRow: View {
     let isSelected: Bool
     let isRunning: Bool
     let onSelect: () -> Void
+    let onStart: () -> Void
     let onToggleComplete: (Bool) -> Void
 
     var body: some View {
@@ -1567,15 +1492,17 @@ private struct ActionRow: View {
             .padding(.top, 6)
 
             VStack(alignment: .leading, spacing: 4) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text(action.title)
-                        .font(TimeBiteTypography.font(.callout, weight: .semibold))
-                        .strikethrough(action.isCompleted, color: TimeBitePalette.secondaryText(for: colorScheme))
-                    Spacer(minLength: 12)
-                    Text("\(plannedMinutes.timeBiteDuration) planned")
-                        .font(TimeBiteTypography.font(.caption2))
-                        .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
+                Text(action.title)
+                    .font(TimeBiteTypography.font(.callout, weight: .semibold))
+                    .strikethrough(action.isCompleted, color: TimeBitePalette.secondaryText(for: colorScheme))
+
+                HStack(spacing: 10) {
+                    Text("Actual \(actualMinutes.actionClockDuration)")
+                    Text("\(max(0, plannedMinutes - actualMinutes).actionClockDuration) remaining")
                 }
+                .font(TimeBiteTypography.font(.caption2))
+                .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
+                .padding(.top, 4)
 
                 if let projectTitle {
                     Text(projectTitle)
@@ -1595,10 +1522,19 @@ private struct ActionRow: View {
                     } else if isRunning {
                         StatPill(label: "Status", value: "Running", tint: tint)
                     } else {
-                        StatPill(label: "Status", value: action.status.rawValue.capitalized, tint: tint)
+                        StatPill(label: "Status", value: action.status == .inbox ? "Ready" : action.status.rawValue.capitalized, tint: tint)
                     }
                 }
             }
+
+            Button(action: onStart) {
+                Image(systemName: isRunning ? "play.fill" : "play.circle.fill")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(tint)
+            }
+            .buttonStyle(.borderless)
+            .disabled(action.isCompleted)
+            .help(isRunning ? "Action is running" : "Start action")
         }
         .padding(12)
         .background(
@@ -1623,44 +1559,18 @@ private struct TimerDialView: View {
     let onLongPress: () -> Void
 
     var body: some View {
-        VStack(spacing: 10) {
-            ZStack {
-                Circle()
-                    .fill(TimeBitePalette.elevatedSurface(for: colorScheme))
+        ZStack {
+            Circle()
+                .fill(TimeBitePalette.elevatedSurface(for: colorScheme))
 
-                Circle()
-                    .stroke(accentColor.opacity(0.16), style: StrokeStyle(lineWidth: 14, lineCap: .round))
+            Circle()
+                .stroke(accentColor.opacity(0.16), style: StrokeStyle(lineWidth: 14, lineCap: .round))
 
-                Circle()
-                    .trim(from: 0, to: progress)
-                    .stroke(accentColor, style: StrokeStyle(lineWidth: 14, lineCap: .round, lineJoin: .round))
-                    .rotationEffect(.degrees(-90))
-                    .animation(.easeInOut(duration: 0.25), value: progress)
-
-                Button {
-                    // The start action intentionally requires a long press.
-                } label: {
-                    ZStack {
-                        Circle()
-                            .fill(accentColor.opacity(isEnabled ? 0.18 : 0.10))
-                            .frame(width: 86, height: 86)
-                        Image(systemName: "play.fill")
-                            .font(.system(size: 24, weight: .bold))
-                            .foregroundStyle(isEnabled ? accentColor : TimeBitePalette.secondaryText(for: colorScheme))
-                    }
-                }
-                .buttonStyle(.plain)
-                .disabled(true)
-            }
-            .frame(width: 158, height: 158)
-            .contentShape(Circle())
-            .onLongPressGesture(minimumDuration: 0.8, maximumDistance: 18) {
-                guard isEnabled else { return }
-                onLongPress()
-            }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(isRunning ? "Timer running" : "Start action")
-            .accessibilityHint(isRunning ? "The timer is already running." : "Press and hold the play button to start this action.")
+            Circle()
+                .trim(from: 0, to: progress)
+                .stroke(accentColor, style: StrokeStyle(lineWidth: 14, lineCap: .round, lineJoin: .round))
+                .rotationEffect(.degrees(-90))
+                .animation(.easeInOut(duration: 0.25), value: progress)
 
             VStack(spacing: 2) {
                 Text(primaryLabel)
@@ -1670,7 +1580,66 @@ private struct TimerDialView: View {
                     .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
             }
             .multilineTextAlignment(.center)
+            .padding(.horizontal, 12)
+            .frame(width: 132, height: 60)
+            .background(accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
+        .frame(width: 158, height: 158)
+        .contentShape(Circle())
+        .onLongPressGesture(minimumDuration: 0.8, maximumDistance: 18) {
+            guard isEnabled else { return }
+            onLongPress()
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(isRunning ? "Action timer" : "Start action")
+        .accessibilityHint(isRunning ? "The timer is already running." : "Press and hold the timer ring to start this action.")
+    }
+}
+
+fileprivate extension Int {
+    var actionClockDuration: String {
+        String(format: "%02d:%02d", self / 60, self % 60)
+    }
+}
+
+private struct SegmentedDayRing: View {
+    @Environment(\.colorScheme) private var colorScheme
+    let segments: [TimeRingSegment]
+    let primaryLabel: String
+    let secondaryLabel: String
+    let color: (NowAllocationColorToken) -> Color
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(TimeBitePalette.border(for: colorScheme).opacity(0.55), lineWidth: 12)
+
+            ForEach(segments) { segment in
+                let start = Double(segment.startMinutes) / 1_440
+                let end = min(start + Double(segment.durationMinutes) / 1_440, 1)
+                if end > start {
+                    Circle()
+                        .trim(from: start, to: end)
+                        .stroke(
+                            color(segment.colorToken),
+                            style: StrokeStyle(lineWidth: 12, lineCap: .butt)
+                        )
+                        .rotationEffect(.degrees(-90))
+                }
+            }
+
+            VStack(spacing: 3) {
+                Text(primaryLabel)
+                    .font(TimeBiteTypography.font(.headline, weight: .semibold))
+                Text(secondaryLabel)
+                    .font(TimeBiteTypography.font(.caption2))
+                    .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
+            }
+            .multilineTextAlignment(.center)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Daily time allocation")
+        .accessibilityValue(segments.map { "\($0.title) \($0.durationMinutes.timeBiteDuration)" }.joined(separator: ", "))
     }
 }
 

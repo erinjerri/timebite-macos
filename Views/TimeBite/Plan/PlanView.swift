@@ -183,7 +183,7 @@ struct PlanningWorkbenchView: View {
 
                     if viewModel.rawText.isEmpty {
                         Text("Paste one project per line.\n\nExamples:\n- Timebite platform rebuild\n- HealthKit sleep sync\n- OCR planner import")
-                            .font(TimeBiteTypography.font(.callout))
+                            .font(TimeBiteTypography.font(.callout, weight: .light))
                             .lineSpacing(TimeBiteTypography.bodyLineSpacing)
                             .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
                             .padding(16)
@@ -193,7 +193,7 @@ struct PlanningWorkbenchView: View {
                         get: { viewModel.rawText },
                         set: { viewModel.updateRawText($0) }
                     ))
-                    .font(TimeBiteTypography.font(.body))
+                    .font(TimeBiteTypography.font(.body, weight: .light))
                     .scrollContentBackground(.hidden)
                     .padding(12)
                     .frame(minHeight: 190)
@@ -613,16 +613,103 @@ private struct PlanningKanbanColumn: View {
 private struct PlanningEisenhowerView: View {
     @Environment(\.colorScheme) private var colorScheme
     let items: [PlanningWorkbenchItem]
+    @AppStorage("timebite.plan.matrix.placements.v1") private var storedPlacementsData = Data()
+    @State private var placements: [UUID: EisenhowerQuadrant] = [:]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                PlanningQuadrant(title: "Do now", subtitle: "Urgent + important", tint: TimeBitePalette.green, items: items.filter { $0.isUrgent && $0.isImportant })
-                PlanningQuadrant(title: "Schedule", subtitle: "Important, not urgent", tint: TimeBitePalette.sky, items: items.filter { !$0.isUrgent && $0.isImportant })
-                PlanningQuadrant(title: "Delegate", subtitle: "Urgent, less important", tint: TimeBitePalette.gold, items: items.filter { $0.isUrgent && !$0.isImportant })
-                PlanningQuadrant(title: "Eliminate", subtitle: "Not urgent, not important", tint: TimeBitePalette.violet, items: items.filter { !$0.isUrgent && !$0.isImportant })
+                quadrant(.doNow, tint: TimeBitePalette.green, items: items)
+                quadrant(.decide, tint: TimeBitePalette.sky, items: items)
+                quadrant(.delegate, tint: TimeBitePalette.gold, items: items)
+                quadrant(.delete, tint: TimeBitePalette.violet, items: items)
             }
         }
+        .onAppear {
+            loadPlacements(for: items)
+        }
+        .onChange(of: items) { _, newItems in
+            loadPlacements(for: newItems)
+        }
+    }
+
+    private func quadrant(
+        _ quadrant: EisenhowerQuadrant,
+        tint: Color,
+        items: [PlanningWorkbenchItem]
+    ) -> some View {
+        PlanningQuadrant(
+            title: quadrant.title,
+            subtitle: quadrant.subtitle,
+            tint: tint,
+            items: items.filter { placement(for: $0) == quadrant },
+            onDrop: { ids in
+                move(ids: ids, to: quadrant)
+            }
+        )
+    }
+
+    private func placement(for item: PlanningWorkbenchItem) -> EisenhowerQuadrant {
+        placements[item.id] ?? EisenhowerQuadrant.defaultPlacement(for: item)
+    }
+
+    private func move(ids: [String], to quadrant: EisenhowerQuadrant) -> Bool {
+        let itemIDs = ids.compactMap(UUID.init)
+        guard !itemIDs.isEmpty else { return false }
+
+        for itemID in itemIDs {
+            placements[itemID] = quadrant
+        }
+        savePlacements()
+        return true
+    }
+
+    private func loadPlacements(for items: [PlanningWorkbenchItem]) {
+        let decoded = (try? JSONDecoder().decode([String: String].self, from: storedPlacementsData)) ?? [:]
+        placements = Dictionary(uniqueKeysWithValues: items.compactMap { item in
+            guard let rawQuadrant = decoded[item.id.uuidString],
+                  let quadrant = EisenhowerQuadrant(rawValue: rawQuadrant) else { return nil }
+            return (item.id, quadrant)
+        })
+    }
+
+    private func savePlacements() {
+        let encoded = placements.reduce(into: [String: String]()) { result, entry in
+            result[entry.key.uuidString] = entry.value.rawValue
+        }
+        storedPlacementsData = (try? JSONEncoder().encode(encoded)) ?? Data()
+    }
+}
+
+private enum EisenhowerQuadrant: String, CaseIterable {
+    case doNow
+    case decide
+    case delegate
+    case delete
+
+    var title: String {
+        switch self {
+        case .doNow: "Do"
+        case .decide: "Decide"
+        case .delegate: "Delegate"
+        case .delete: "Delete"
+        }
+    }
+
+    var subtitle: String {
+        switch self {
+        case .doNow: "Urgent + important"
+        case .decide: "Important, not urgent"
+        case .delegate: "Urgent, less important"
+        case .delete: "Not urgent, not important"
+        }
+    }
+
+    static func defaultPlacement(for item: PlanningWorkbenchItem) -> EisenhowerQuadrant {
+        if item.isUrgent && item.isImportant { return .doNow }
+        if !item.isUrgent && item.isImportant { return .decide }
+        if item.isUrgent && !item.isImportant { return .delegate }
+        return .delete
     }
 }
 
@@ -632,6 +719,7 @@ private struct PlanningQuadrant: View {
     let subtitle: String
     let tint: Color
     let items: [PlanningWorkbenchItem]
+    let onDrop: ([String]) -> Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -656,10 +744,13 @@ private struct PlanningQuadrant: View {
                     .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
                     .padding(.vertical, 8)
             } else {
-                ForEach(items.prefix(5)) { item in
-                    Text(item.title)
-                        .font(TimeBiteTypography.font(.callout, weight: .medium))
-                        .lineLimit(2)
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(items) { item in
+                        PlanningMatrixTaskRow(item: item, tint: tint)
+                        if item.id != items.last?.id {
+                            Divider().opacity(0.6)
+                        }
+                    }
                 }
             }
         }
@@ -670,6 +761,40 @@ private struct PlanningQuadrant: View {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .stroke(tint.opacity(0.25), lineWidth: 1)
         }
+        .dropDestination(for: String.self) { values, _ in
+            onDrop(values)
+        }
+    }
+}
+
+private struct PlanningMatrixTaskRow: View {
+    @Environment(\.colorScheme) private var colorScheme
+    let item: PlanningWorkbenchItem
+    let tint: Color
+    @State private var isHovering = false
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "square")
+                .font(.system(size: 17, weight: .regular))
+                .foregroundStyle(isHovering ? tint : TimeBitePalette.secondaryText(for: colorScheme))
+
+            Text(item.title)
+                .font(TimeBiteTypography.font(.callout, weight: .regular))
+                .lineLimit(2)
+
+            Spacer(minLength: 8)
+
+            Image(systemName: "line.3.horizontal")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(tint)
+                .opacity(isHovering ? 0.9 : 0)
+        }
+        .padding(.vertical, 10)
+        .contentShape(Rectangle())
+        .background(isHovering ? tint.opacity(0.08) : Color.clear)
+        .onHover { isHovering = $0 }
+        .draggable(item.id.uuidString)
     }
 }
 

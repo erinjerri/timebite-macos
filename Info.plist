@@ -24,6 +24,10 @@
 	<string>TimeBite displays your existing calendar events beside planned focus blocks so you can schedule without conflicts.</string>
 	<key>NSHealthShareUsageDescription</key>
 	<string>TimeBite can read your Health data to personalize your day and surface a health snapshot in the planner.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>TimeBite uses the microphone to capture live dictation for action creation.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>TimeBite transcribes your spoken actions into the create action input field.</string>
 	<key>UTExportedTypeDeclarations</key>
 	<array>
 		<dict>
