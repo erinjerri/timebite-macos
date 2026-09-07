@@ -13,12 +13,12 @@ struct DailyTrackView: View {
                 if model.dailySummary.hasData || model.dailySummary.habitCompletion != nil {
                     alignmentCard
                     HStack(alignment: .top, spacing: 18) {
-                        activityCard
                         VStack(spacing: 18) {
                             reflectionCard(title: "AM Summary", text: model.dailySummary.reflection.amReflection)
                             reflectionCard(title: "PM Summary", text: model.dailySummary.reflection.pmReflection)
                         }
-                        .frame(maxWidth: 420)
+                        .frame(maxWidth: 360)
+                        activityCard
                     }
                 } else {
                     TrackingEmptyState(title: "No activity recorded", message: "Focus sessions, completed actions, habits, and reflections for this day will appear here.")
@@ -30,7 +30,7 @@ struct DailyTrackView: View {
 
     private var alignmentCard: some View {
         TrackCard(title: "Daily Alignment") {
-            HStack(spacing: 32) {
+            VStack(alignment: .leading, spacing: 16) {
                 ActivityRingView(
                     progress: model.dailySummary.alignment.overall,
                     accentColor: TimeBitePalette.sky,
@@ -38,20 +38,13 @@ struct DailyTrackView: View {
                     secondaryLabel: "Overall",
                     lineWidth: 16
                 )
-                .frame(width: 150, height: 150)
+                .frame(width: 136, height: 136)
 
-                HStack(spacing: 28) {
+                HStack(spacing: 24) {
                     alignmentMetric("Focus", model.dailySummary.alignment.focus)
                     alignmentMetric("Actions", model.dailySummary.alignment.actions)
                     alignmentMetric("Goals", model.dailySummary.alignment.goals)
                     alignmentMetric("Reflection", model.dailySummary.alignment.reflection)
-                }
-                Spacer()
-                VStack(alignment: .trailing, spacing: 8) {
-                    Text(model.dailySummary.focusTime.trackingDuration)
-                        .font(TimeBiteTypography.font(.title2, weight: .semibold))
-                    Text("of \(model.dailySummary.plannedFocusTime.trackingDuration) planned")
-                        .foregroundStyle(.secondary)
                 }
             }
         }

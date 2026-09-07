@@ -41,21 +41,26 @@ struct TrackingEmptyState: View {
 extension TimeInterval {
     var trackingDuration: String {
         let totalMinutes = Int(self / 60)
-        let hours = totalMinutes / 60
-        let minutes = totalMinutes % 60
-        if hours > 0, minutes == 0 { return "\(hours)h" }
-        if hours > 0 { return "\(hours)h \(minutes)m" }
-        return "\(minutes)m"
+        return totalMinutes.formattedTimeBiteDuration
     }
 }
 
 extension Int {
     var timeBiteDuration: String {
+        formattedTimeBiteDuration
+    }
+}
+
+private extension Int {
+    var formattedTimeBiteDuration: String {
         let hours = self / 60
         let minutes = self % 60
-        if hours > 0, minutes == 0 { return "\(hours)h" }
-        if hours > 0 { return "\(hours)h \(minutes)m" }
-        return "\(minutes)m"
+        let hourLabel = hours == 1 ? "1 hour" : "\(hours) hours"
+        let minuteLabel = minutes == 1 ? "1 minute" : "\(minutes) minutes"
+
+        if hours > 0, minutes == 0 { return hourLabel }
+        if hours > 0 { return "\(hourLabel) \(minuteLabel)" }
+        return minuteLabel
     }
 }
 

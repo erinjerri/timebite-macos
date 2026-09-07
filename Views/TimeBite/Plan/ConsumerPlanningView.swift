@@ -246,7 +246,7 @@ struct ConsumerPlanningView: View {
                         .frame(maxWidth: .infinity, minHeight: 150, alignment: .topLeading)
                         .background(TimeBitePalette.elevatedSurface(for: colorScheme), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                         .dropDestination(for: String.self) { values, _ in
-                            moveItems(values, to: stage)
+                            _ = moveItems(values, to: stage)
                         }
                     }
                 }

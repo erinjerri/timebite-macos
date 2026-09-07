@@ -1,5 +1,8 @@
 import Combine
 import Foundation
+#if canImport(Vision)
+import Vision
+#endif
 
 struct NowLaneSummary: Identifiable, Hashable, Sendable {
     var id: String
@@ -43,6 +46,24 @@ struct NowReflectionSummary: Hashable, Sendable {
     var plannedMinutes: Int
 }
 
+struct NowDailyEntryState: Codable, Hashable, Sendable {
+    static let currentSchemaVersion = 1
+
+    var schemaVersion: Int = currentSchemaVersion
+    var dayStart: Date
+    var sleepMinutes: Int?
+
+    init(
+        schemaVersion: Int = currentSchemaVersion,
+        dayStart: Date = Date(),
+        sleepMinutes: Int? = nil
+    ) {
+        self.schemaVersion = schemaVersion
+        self.dayStart = dayStart
+        self.sleepMinutes = sleepMinutes
+    }
+}
+
 final class LocalNowWorkspacePreferencesStore {
     private static let key = "timebite.nowWorkspacePreferences.v1"
     private let defaults: UserDefaults
@@ -67,6 +88,31 @@ final class LocalNowWorkspacePreferencesStore {
     }
 }
 
+final class LocalNowDailyEntryStore {
+    private static let key = "timebite.nowDailyEntry.v1"
+    private let defaults: UserDefaults
+    private let encoder = JSONEncoder()
+    private let decoder = JSONDecoder()
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
+
+    func load(for date: Date, calendar: Calendar = .current) -> NowDailyEntryState {
+        guard let data = defaults.data(forKey: Self.key),
+              let state = try? decoder.decode(NowDailyEntryState.self, from: data),
+              state.schemaVersion == NowDailyEntryState.currentSchemaVersion,
+              calendar.isDate(state.dayStart, inSameDayAs: date) else {
+            return NowDailyEntryState(dayStart: calendar.startOfDay(for: date))
+        }
+        return state
+    }
+
+    func save(_ state: NowDailyEntryState) {
+        defaults.set(try? encoder.encode(state), forKey: Self.key)
+    }
+}
+
 @MainActor
 final class NowWorkspaceViewModel: ObservableObject {
     @Published private(set) var goals: [Goal] = []
@@ -84,6 +130,7 @@ final class NowWorkspaceViewModel: ObservableObject {
     @Published var draftEstimateStartDate = Date()
     @Published var draftEstimateEndDate = Date().addingTimeInterval(45 * 60)
     @Published var selectedActionID: UUID?
+    @Published private(set) var dailyEntryState: NowDailyEntryState
     @Published private(set) var routinePlans: [NowRoutinePlan] = []
     @Published private(set) var lastTimerEvent: NowTimerEvent?
     @Published private(set) var lastTimerActionID: UUID?
@@ -91,6 +138,7 @@ final class NowWorkspaceViewModel: ObservableObject {
 
     private let repository: any PlanningRepository
     private let preferencesStore: LocalNowWorkspacePreferencesStore
+    private let dailyEntryStore: LocalNowDailyEntryStore
     private let categoryStore: LocalGoalCategoryStore
     private let calendar: Calendar
     private let now: () -> Date
@@ -99,17 +147,21 @@ final class NowWorkspaceViewModel: ObservableObject {
     init(
         repository: (any PlanningRepository)? = nil,
         preferencesStore: LocalNowWorkspacePreferencesStore? = nil,
+        dailyEntryStore: LocalNowDailyEntryStore? = nil,
         categoryStore: LocalGoalCategoryStore? = nil,
         calendar: Calendar = .current,
         now: @escaping () -> Date = Date.init
     ) {
         let preferencesStore = preferencesStore ?? LocalNowWorkspacePreferencesStore()
+        let dailyEntryStore = dailyEntryStore ?? LocalNowDailyEntryStore()
         self.repository = repository ?? LocalPlanningRepository()
         self.preferencesStore = preferencesStore
+        self.dailyEntryStore = dailyEntryStore
         self.categoryStore = categoryStore ?? LocalGoalCategoryStore()
         self.calendar = calendar
         self.now = now
         self.preferences = preferencesStore.load()
+        self.dailyEntryState = dailyEntryStore.load(for: now(), calendar: calendar)
         if self.preferences.weeklyAllocations.isEmpty || self.preferences.baselineNeeds.isEmpty {
             self.preferences = NowWorkspacePreferences()
             preferencesStore.save(self.preferences)
@@ -196,6 +248,14 @@ final class NowWorkspaceViewModel: ObservableObject {
             return selected
         }
         return activeAction ?? nextAction
+    }
+
+    var sleepMinutesForToday: Int {
+        dailyEntryState.sleepMinutes ?? defaultSleepBaselineMinutes
+    }
+
+    var isSleepPromptVisible: Bool {
+        dailyEntryState.sleepMinutes == nil
     }
 
     var goalSummaries: [NowGoalSummary] {
@@ -292,6 +352,46 @@ final class NowWorkspaceViewModel: ObservableObject {
         }
     }
 
+    func captureQuickActions(from rawText: String) {
+        let titles = parsedActionTitles(from: rawText)
+        guard !titles.isEmpty else { return }
+
+        do {
+            let savedActions = try titles.map { title in
+                let action = Action(
+                    title: title,
+                    estimatedDuration: SchedulingDefaults.defaultBlockDuration,
+                    status: .inbox
+                )
+                try repository.save(action)
+                return action
+            }
+            selectedActionID = savedActions.first?.id
+            reload()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func captureQuickActions(fromImageAt url: URL) async {
+#if canImport(Vision)
+        do {
+            let recognizedText = try await recognizeText(from: url)
+            captureQuickActions(from: recognizedText)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+#else
+        errorMessage = "Photo capture is not available on this platform."
+#endif
+    }
+
+    func setSleepMinutes(_ minutes: Int) {
+        let normalized = max(0, minutes)
+        dailyEntryState = NowDailyEntryState(dayStart: calendar.startOfDay(for: now()), sleepMinutes: normalized)
+        dailyEntryStore.save(dailyEntryState)
+    }
+
     func start(_ action: Action) {
         do {
             if let activeSession, activeSession.actionID != action.id {
@@ -385,6 +485,11 @@ final class NowWorkspaceViewModel: ObservableObject {
         guard let index = preferences.baselineNeeds.firstIndex(where: { $0.id == id }) else { return }
         preferences.baselineNeeds[index].title = title
         persistPreferences()
+    }
+
+    func applyBaselineNeed(id: UUID) {
+        guard let need = preferences.baselineNeeds.first(where: { $0.id == id }) else { return }
+        setBaselineMinutes(id: id, minutes: need.estimateMinutes)
     }
 
     func setAllocationMode(_ mode: NowAllocationMode) {
@@ -513,7 +618,7 @@ final class NowWorkspaceViewModel: ObservableObject {
     }
 
     func dailyLanes(now: Date) -> [NowLaneSummary] {
-        let baselineMinutes = preferences.baselineNeeds.reduce(0) { $0 + $1.estimateMinutes }
+        let baselineMinutes = baselineMinutesForToday()
         let actualProjectMinutes = actualProjectMinutes(now: now)
         let plannedProjectMinutes = plannedProjectMinutes(now: now)
         let totalPlanned = baselineMinutes + plannedProjectMinutes
@@ -775,9 +880,54 @@ final class NowWorkspaceViewModel: ObservableObject {
     }
 
     private func todayPlannedMinutes(now: Date) -> Int {
-        let baseline = preferences.baselineNeeds.reduce(0) { $0 + $1.estimateMinutes }
+        let baseline = baselineMinutesForToday()
         return baseline + plannedProjectMinutes(now: now)
     }
+
+    private func baselineMinutesForToday() -> Int {
+        let sleepEstimate = sleepMinutesForToday
+        return preferences.baselineNeeds.reduce(0) { total, need in
+            if need.title.lowercased() == "sleep" {
+                return total + sleepEstimate
+            }
+            return total + need.estimateMinutes
+        }
+    }
+
+    private var defaultSleepBaselineMinutes: Int {
+        preferences.baselineNeeds.first(where: { $0.title.lowercased() == "sleep" })?.estimateMinutes ?? 8 * 60
+    }
+
+    private func parsedActionTitles(from rawText: String) -> [String] {
+        rawText
+            .components(separatedBy: .newlines)
+            .flatMap { line -> [String] in
+                let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty else { return [] }
+
+                let stripped = trimmed
+                    .replacingOccurrences(of: #"^[-•*]\s+"#, with: "", options: .regularExpression)
+                    .replacingOccurrences(of: #"^\d+[.)]\s+"#, with: "", options: .regularExpression)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                return stripped.isEmpty ? [] : [stripped]
+            }
+    }
+
+#if canImport(Vision)
+    private func recognizeText(from url: URL) async throws -> String {
+        var request = RecognizeTextRequest()
+        request.recognitionLevel = .accurate
+        request.usesLanguageCorrection = true
+        request.recognitionLanguages = [Locale.Language(identifier: "en-US")]
+
+        let observations = try await request.perform(on: url)
+        return observations
+            .map(\.transcript)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n")
+    }
+#endif
 
     private func weeklyMinutes(for allocation: WeeklyAllocationPreset) -> Int {
         switch preferences.allocationMode {

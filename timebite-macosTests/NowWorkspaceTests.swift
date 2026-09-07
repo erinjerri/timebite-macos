@@ -79,5 +79,44 @@ final class NowWorkspaceTests: XCTestCase {
         XCTAssertEqual(model.errorMessage, "Estimated end time must be after the start time.")
         XCTAssertTrue((try repository.actions()).isEmpty)
     }
+
+    func testSleepEntryUpdatesDailyBaselineWithoutChangingPreferences() throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let repository = InMemoryPlanningRepository(store: PlanningStore())
+        let suiteName = UUID().uuidString
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let model = NowWorkspaceViewModel(
+            repository: repository,
+            dailyEntryStore: LocalNowDailyEntryStore(defaults: defaults),
+            now: { now }
+        )
+
+        XCTAssertTrue(model.isSleepPromptVisible)
+
+        let defaultBaseline = model.dailyLanes(now: now).first?.plannedMinutes ?? 0
+        model.setSleepMinutes(6 * 60)
+        let adjustedBaseline = model.dailyLanes(now: now).first?.plannedMinutes ?? 0
+
+        XCTAssertFalse(model.isSleepPromptVisible)
+        XCTAssertEqual(defaultBaseline - adjustedBaseline, 2 * 60)
+    }
+
+    func testQuickCaptureParsesBatchedActions() throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let repository = InMemoryPlanningRepository(store: PlanningStore())
+        let model = NowWorkspaceViewModel(repository: repository, now: { now })
+
+        model.captureQuickActions(from: """
+        - Review notes
+        1. Merge branch
+        • Send update
+        """)
+
+        let savedActions = try repository.actions()
+        XCTAssertEqual(savedActions.map(\.title), ["Review notes", "Merge branch", "Send update"])
+        XCTAssertEqual(savedActions.first?.status, .inbox)
+    }
 }
 #endif
