@@ -10,7 +10,7 @@ struct WeeklyTrackView: View {
                     .datePickerStyle(.compact)
                     .frame(maxWidth: 280)
 
-                TrackCard(title: "Seven-Day Alignment") {
+                TrackCard(title: "Weekly Allocation") {
                     HStack(spacing: 20) {
                         ForEach(model.weeklySummary.days) { day in
                             Button { model.openDay(day.date) } label: {
@@ -41,7 +41,7 @@ struct WeeklyTrackView: View {
                         summaryCard("Habits", model.weeklySummary.habitCompletion?.trackingPercent ?? "—", "consistency")
                     }
                 } else {
-                    TrackingEmptyState(title: "No weekly activity", message: "This summary aggregates the seven Daily records; it does not create separate weekly data.")
+                    TrackingEmptyState(title: "No weekly activity", message: "This weekly allocation view aggregates the seven Daily records; it does not create separate weekly data.")
                 }
 
                 TrackCard(title: "Weekly Reflection") {
