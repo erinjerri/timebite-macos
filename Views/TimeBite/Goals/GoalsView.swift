@@ -7,6 +7,7 @@ struct GoalsView: View {
     @State private var categories: [GoalCategory] = []
     @State private var newCategoryTitle = ""
     @State private var isCreatingCategory = false
+    @State private var colorPickerCategoryID: UUID?
 
     private let repository: any PlanningRepository
     private let categoryStore: LocalGoalCategoryStore
@@ -41,19 +42,25 @@ struct GoalsView: View {
 
                 ForEach(categories) { category in
                     HStack(spacing: 10) {
-                        Menu {
-                            ForEach(NowAllocationColorToken.allCases) { token in
-                                Button {
-                                    updateCategoryColor(category.id, token: token)
-                                } label: {
-                                    Label(token.rawValue.capitalized, systemImage: "circle.fill")
-                                }
-                            }
+                        Button {
+                            colorPickerCategoryID = category.id
                         } label: {
                             Image(systemName: "tag.fill")
                                 .foregroundStyle(color(for: category.colorToken))
                         }
-                        .menuStyle(.borderlessButton)
+                        .buttonStyle(.plain)
+                        .popover(
+                            isPresented: Binding(
+                                get: { colorPickerCategoryID == category.id },
+                                set: { isPresented in
+                                    if !isPresented {
+                                        colorPickerCategoryID = nil
+                                    }
+                                }
+                            )
+                        ) {
+                            categoryColorPicker(for: category.id)
+                        }
                         .help("Change category color")
                         Text(category.title)
                         Spacer()
@@ -97,9 +104,18 @@ struct GoalsView: View {
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(goal.title)
                                     .font(TimeBiteTypography.font(.headline, weight: .semibold))
-                                Text(categoryTitle(for: goal) ?? "Uncategorized")
-                                    .font(TimeBiteTypography.font(.caption))
-                                    .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
+                                if let category = category(for: goal) {
+                                    Text(category.title)
+                                        .font(TimeBiteTypography.font(.caption, weight: .medium))
+                                        .foregroundStyle(color(for: category.colorToken))
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 4)
+                                        .background(color(for: category.colorToken).opacity(0.14), in: Capsule())
+                                } else {
+                                    Text("Uncategorized")
+                                        .font(TimeBiteTypography.font(.caption))
+                                        .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
+                                }
                             }
                             Spacer()
                         }
@@ -182,6 +198,32 @@ struct GoalsView: View {
         categoryStore.save(categories)
     }
 
+    private func categoryColorPicker(for categoryID: UUID) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Category color")
+                .font(TimeBiteTypography.font(.caption, weight: .semibold))
+
+            ForEach(NowAllocationColorToken.allCases) { token in
+                Button {
+                    updateCategoryColor(categoryID, token: token)
+                    colorPickerCategoryID = nil
+                } label: {
+                    HStack(spacing: 8) {
+                        Circle()
+                            .fill(color(for: token))
+                            .frame(width: 12, height: 12)
+                        Text(token.rawValue.capitalized)
+                        Spacer()
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(12)
+        .frame(width: 150)
+    }
+
     private func color(for token: NowAllocationColorToken) -> Color {
         switch token {
         case .blue: TimeBitePalette.blue
@@ -189,7 +231,7 @@ struct GoalsView: View {
         case .gold: TimeBitePalette.gold
         case .violet: TimeBitePalette.violet
         case .teal: TimeBitePalette.teal
-        case .sky: TimeBitePalette.sky
+        case .sky: TimeBitePalette.pink
         case .neutral: TimeBitePalette.secondaryText(for: colorScheme)
         }
     }

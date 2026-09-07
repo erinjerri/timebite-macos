@@ -54,9 +54,9 @@ final class LocalGoalCategoryStore {
     }
 
     private static let defaultCategories = [
-        GoalCategory(id: UUID(uuidString: "A0000000-0000-4000-8000-000000000001")!, title: "Professional / Work / Career"),
-        GoalCategory(id: UUID(uuidString: "A0000000-0000-4000-8000-000000000002")!, title: "Fitness"),
-        GoalCategory(id: UUID(uuidString: "A0000000-0000-4000-8000-000000000003")!, title: "Personal"),
-        GoalCategory(id: UUID(uuidString: "A0000000-0000-4000-8000-000000000004")!, title: "Learning")
+        GoalCategory(id: UUID(uuidString: "A0000000-0000-4000-8000-000000000001")!, title: "Professional / Work / Career", colorToken: .blue),
+        GoalCategory(id: UUID(uuidString: "A0000000-0000-4000-8000-000000000002")!, title: "Fitness", colorToken: .green),
+        GoalCategory(id: UUID(uuidString: "A0000000-0000-4000-8000-000000000003")!, title: "Personal", colorToken: .violet),
+        GoalCategory(id: UUID(uuidString: "A0000000-0000-4000-8000-000000000004")!, title: "Learning", colorToken: .gold)
     ]
 }

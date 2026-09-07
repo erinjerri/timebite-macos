@@ -762,7 +762,7 @@ private struct PlanningQuadrant: View {
                 .stroke(tint.opacity(0.25), lineWidth: 1)
         }
         .dropDestination(for: String.self) { values, _ in
-            onDrop(values)
+            _ = onDrop(values)
         }
     }
 }

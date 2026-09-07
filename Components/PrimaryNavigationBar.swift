@@ -9,10 +9,12 @@ struct PrimaryNavigationBar: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(subtitle.uppercased())
-                    .font(TimeBiteTypography.font(.caption, weight: .semibold))
-                    .tracking(TimeBiteTypography.eyebrowTracking)
-                    .foregroundStyle(TimeBitePalette.sky)
+                if !subtitle.isEmpty {
+                    Text(subtitle.uppercased())
+                        .font(TimeBiteTypography.font(.caption, weight: .semibold))
+                        .tracking(TimeBiteTypography.eyebrowTracking)
+                        .foregroundStyle(TimeBitePalette.sky)
+                }
                 Text(title)
                     .font(TimeBiteTypography.font(.title, weight: .semibold))
                     .foregroundStyle(TimeBitePalette.primaryText(for: colorScheme))

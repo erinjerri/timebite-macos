@@ -1,12 +1,22 @@
 import SwiftUI
 
 enum TimeBitePalette {
-    static let blue = Color(red: 0.41, green: 0.68, blue: 0.98)
-    static let green = Color(red: 0.43, green: 0.78, blue: 0.58)
-    static let teal = Color(red: 0.59, green: 0.84, blue: 0.80)
-    static let sky = Color(red: 0.66, green: 0.82, blue: 0.98)
-    static let violet = Color(red: 0.80, green: 0.70, blue: 0.97)
-    static let gold = Color(red: 0.96, green: 0.86, blue: 0.60)
+    // CYRA brand accents from cyra-site's globals.css.
+    static let blue = color(hex: 0xA9D6E5)
+    static let green = color(hex: 0xB8D8C0)
+    static let gold = color(hex: 0xEAD9AB)
+    static let pink = color(hex: 0xE8BCC8)
+    static let teal = color(hex: 0xA5D5CF)
+    static let violet = color(hex: 0xC9BCE8)
+    static let sky = blue
+
+    private static func color(hex: UInt32) -> Color {
+        Color(
+            red: Double((hex >> 16) & 0xFF) / 255,
+            green: Double((hex >> 8) & 0xFF) / 255,
+            blue: Double(hex & 0xFF) / 255
+        )
+    }
 
     static func background(for colorScheme: ColorScheme) -> Color {
         colorScheme == .dark

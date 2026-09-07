@@ -83,7 +83,7 @@ struct NowView: View {
         VStack(alignment: .leading, spacing: 20) {
             PrimaryNavigationBar(
                 title: "Now",
-                subtitle: "Fast capture, tiny-screen timers, and daily allocation"
+                subtitle: ""
             )
 
             if let errorMessage = model.errorMessage {
@@ -1084,9 +1084,6 @@ struct NowView: View {
                 HStack(spacing: 12) {
                     StatPill(label: "Planned", value: summary.plannedMinutes.timeBiteDuration, tint: TimeBitePalette.sky)
                     StatPill(label: "Remaining", value: summary.unallocatedMinutes.timeBiteDuration, tint: TimeBitePalette.green)
-                    if summary.overflowMinutes > 0 {
-                    StatPill(label: "Overflow", value: summary.overflowMinutes.timeBiteDuration, tint: TimeBitePalette.gold)
-                    }
                 }
             }
         }
@@ -1104,7 +1101,8 @@ struct NowView: View {
     private func hierarchyLine(for action: Action?) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             if let action {
-                if let projectTitle = model.projects.first(where: { $0.id == action.projectID })?.title {
+                if let projectTitle = model.projects.first(where: { $0.id == action.projectID })?.title,
+                   projectTitle.caseInsensitiveCompare("overflow") != .orderedSame {
                     Text(projectTitle)
                         .font(TimeBiteTypography.font(.callout, weight: .semibold))
                         .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
@@ -1114,11 +1112,13 @@ struct NowView: View {
                         .font(TimeBiteTypography.font(.caption))
                         .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
                 }
-                Text(action.status.rawValue.capitalized)
-                    .font(TimeBiteTypography.font(.caption2, weight: .bold))
-                    .textCase(.uppercase)
-                    .tracking(TimeBiteTypography.eyebrowTracking)
-                    .foregroundStyle(color(for: model.currentSelectionColor(for: action)))
+                if action.status != .inbox {
+                    Text(action.status.rawValue.capitalized)
+                        .font(TimeBiteTypography.font(.caption2, weight: .bold))
+                        .textCase(.uppercase)
+                        .tracking(TimeBiteTypography.eyebrowTracking)
+                        .foregroundStyle(color(for: model.currentSelectionColor(for: action)))
+                }
             } else {
                 Text("No action selected yet")
                     .font(TimeBiteTypography.font(.callout))
@@ -1296,9 +1296,16 @@ struct NowView: View {
     @ViewBuilder
     private func routineSection(_ plan: NowRoutinePlan) -> some View {
         let isValid = plan.endDate > plan.startDate
+        let routineIcon = routineIcon(for: plan.period)
 
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
+                Image(systemName: routineIcon.name)
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundStyle(routineIcon.tint)
+                    .frame(width: 38, height: 38)
+                    .background(routineIcon.tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+
                 VStack(alignment: .leading, spacing: 2) {
                     Text(plan.title)
                         .font(TimeBiteTypography.font(.headline, weight: .semibold))
@@ -1358,6 +1365,17 @@ struct NowView: View {
             guard let rawID = strings.first, let blockID = UUID(uuidString: rawID) else { return false }
             model.moveRoutineBlock(blockID: blockID, to: plan.id)
             return true
+        }
+    }
+
+    private func routineIcon(for period: NowRoutinePeriod) -> (name: String, tint: Color) {
+        switch period {
+        case .morning:
+            ("sunrise.fill", TimeBitePalette.sky)
+        case .afternoon:
+            ("sun.max.fill", TimeBitePalette.gold)
+        case .evening:
+            ("moon.stars.fill", TimeBitePalette.violet)
         }
     }
 
@@ -1707,10 +1725,6 @@ private struct LaneSummaryRow: View {
                 Text(summary.subtitle)
                 if summary.remainingMinutes > 0 {
                     Text("\(summary.remainingMinutes.timeBiteDuration) remaining")
-                }
-                if summary.overflowMinutes > 0 {
-                    Text("\(summary.overflowMinutes.timeBiteDuration) overflow")
-                        .foregroundStyle(TimeBitePalette.gold)
                 }
             }
             .font(TimeBiteTypography.font(.caption))
