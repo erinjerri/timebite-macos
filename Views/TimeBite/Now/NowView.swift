@@ -21,6 +21,9 @@ struct NowView: View {
     @State private var sleepHoursText = "8"
     @State private var quickActionText = ""
     @State private var selectedSleepHours = 8
+    @State private var newBaselineTitle = ""
+    @State private var isAddingBaselineCategory = false
+    @State private var showingSleepEditor = false
     @State private var collapsedProjectIDs = Set<UUID>()
     @FocusState private var quickCaptureFocus: NowQuickCaptureFocusField?
     @AppStorage("timebite.healthSetupPresented.v1") private var healthSetupPresented = false
@@ -53,6 +56,12 @@ struct NowView: View {
                 quickCaptureFocus = .sleepHours
             } else {
                 quickCaptureFocus = .action
+            }
+        }
+        .onChange(of: health.snapshot?.sleepMinutes) { _, newValue in
+            if let newValue {
+                model.setSleepMinutes(newValue)
+                syncSleepDraft()
             }
         }
         .onChange(of: speechInput.composedText) { _, newValue in
@@ -96,6 +105,7 @@ struct NowView: View {
 
             captureFlowCard(now: now)
             compactTimerAndTaskCluster(now: now)
+            baselineCard
             checklistCard(now: now)
             weeklyPlanCard(now: now)
         }
@@ -172,16 +182,11 @@ struct NowView: View {
 
     private func captureFlowCard(now: Date) -> some View {
         DashboardCard(
-            title: model.isSleepPromptVisible ? "Start the day" : "Create action",
+            title: "Create action",
             systemImage: "square.and.pencil",
             tint: TimeBitePalette.blue
         ) {
             VStack(alignment: .leading, spacing: 14) {
-                if model.isSleepPromptVisible {
-                    sleepPromptSection
-                    Divider()
-                }
-
                 quickActionSection(now: now)
             }
         }
@@ -194,13 +199,14 @@ struct NowView: View {
         let actualMinutes = focusAction.map { model.actualMinutes(for: $0, now: now) } ?? 0
         let progress = ActivityProgressCalculator().calculate(completed: actualMinutes, planned: estimatedMinutes).normalizedProgress
         let session = model.activeSession
+        let timerStatus = focusAction.map { model.timerStatusText(for: $0, now: now) } ?? "Select an action"
 
         VStack(alignment: .center, spacing: 12) {
             TimerDialView(
                 progress: progress,
                 accentColor: session == nil ? TimeBitePalette.blue : TimeBitePalette.green,
                 primaryLabel: actualMinutes.actionClockDuration,
-                secondaryLabel: focusAction.map { _ in "\(estimatedMinutes.actionClockDuration) planned" } ?? "Select an action",
+                secondaryLabel: timerStatus,
                 isRunning: session != nil,
                 isEnabled: focusAction != nil,
                 onLongPress: {
@@ -217,6 +223,10 @@ struct NowView: View {
                 .multilineTextAlignment(.center)
 
             hierarchyLine(for: focusAction)
+
+            if let focusAction {
+                actionTimeEditor(action: focusAction, now: now)
+            }
 
             if session == nil {
                 Button {
@@ -449,6 +459,8 @@ struct NowView: View {
                         .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
                 }
             }
+
+            estimateWorkflowEditor
 
             Divider()
             actionTimerContent(now: now)
@@ -965,37 +977,180 @@ struct NowView: View {
                             Text(need.notes)
                                 .font(TimeBiteTypography.font(.caption))
                                 .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
+
+                            if need.title.caseInsensitiveCompare("sleep") == .orderedSame {
+                                Button("Edit sleep / Sync HealthKit") {
+                                    syncSleepDraft()
+                                    showingSleepEditor = true
+                                }
+                                .buttonStyle(.borderless)
+                                .foregroundStyle(TimeBitePalette.blue)
+                            }
                         }
 
                         Spacer(minLength: 12)
 
-                        VStack(alignment: .trailing, spacing: 8) {
-                            Stepper(
-                                value: Binding(
-                                    get: { need.estimateMinutes },
-                                    set: { model.setBaselineMinutes(id: need.id, minutes: $0) }
-                                ),
-                                in: 0...720,
-                                step: 15
-                            ) {
-                                Text(need.estimateMinutes.timeBiteDuration)
-                            }
-                            .labelsHidden()
-
-                            Button("Set") {
-                                model.applyBaselineNeed(id: need.id)
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .tint(TimeBitePalette.gold)
-                            .controlSize(.small)
-                            .help("Apply this baseline amount to today’s allocation.")
+                        VStack(alignment: .leading, spacing: 6) {
+                            baselineTimeEntryRow(
+                                title: "Estimate",
+                                id: need.id,
+                                actual: false
+                            )
+                            baselineTimeEntryRow(
+                                title: "Actual",
+                                id: need.id,
+                                actual: true
+                            )
                         }
                     }
                     .padding(12)
                     .background(TimeBitePalette.elevatedSurface(for: colorScheme), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
+
+                if isAddingBaselineCategory {
+                    HStack(spacing: 8) {
+                        TextField("Project or goal category", text: $newBaselineTitle)
+                        Button("Add") {
+                            model.addBaselineNeed(title: newBaselineTitle)
+                            newBaselineTitle = ""
+                            isAddingBaselineCategory = false
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(newBaselineTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }
+
+                    Menu("Use existing project or goal") {
+                        ForEach(model.projects) { project in
+                            Button(project.title) {
+                                model.addBaselineNeed(title: project.title)
+                                newBaselineTitle = ""
+                                isAddingBaselineCategory = false
+                            }
+                        }
+                        ForEach(model.goals) { goal in
+                            Button(goal.title) {
+                                model.addBaselineNeed(title: goal.title)
+                                newBaselineTitle = ""
+                                isAddingBaselineCategory = false
+                            }
+                        }
+                    }
+                } else {
+                    Button {
+                        isAddingBaselineCategory = true
+                    } label: {
+                        Label("Add project or goal category", systemImage: "plus")
+                    }
+                    .buttonStyle(.borderless)
+                }
             }
         }
+        .sheet(isPresented: $showingSleepEditor) {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Sleep for today")
+                    .font(TimeBiteTypography.font(.headline, weight: .semibold))
+                sleepPromptSection
+                Button("Sync HealthKit sleep") {
+                    health.connectAndRefresh(includeSleep: true, includeFitness: false)
+                }
+                .buttonStyle(.bordered)
+                .disabled(health.isLoading)
+                Spacer(minLength: 0)
+            }
+            .padding(24)
+            .frame(width: 360, height: 300)
+        }
+    }
+
+    private func baselineTimeEntryRow(title: String, id: UUID, actual: Bool) -> some View {
+        HStack(spacing: 6) {
+            Text(title)
+                .font(TimeBiteTypography.font(.caption, weight: .medium))
+                .frame(width: 58, alignment: .leading)
+            TextField("0", text: baselineTimeBinding(id: id, actual: actual, component: .hours))
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 42)
+            Text("h")
+                .font(TimeBiteTypography.font(.caption2))
+            TextField("0", text: baselineTimeBinding(id: id, actual: actual, component: .minutes))
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 42)
+            Text("m")
+                .font(TimeBiteTypography.font(.caption2))
+        }
+    }
+
+    private func actionTimeEditor(action: Action, now: Date) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            actionTimeEntryRow(title: "Estimate", action: action, actual: false, now: now)
+            actionTimeEntryRow(title: "Actual", action: action, actual: true, now: now)
+        }
+        .padding(10)
+        .background(TimeBitePalette.elevatedSurface(for: colorScheme), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private func actionTimeEntryRow(title: String, action: Action, actual: Bool, now: Date) -> some View {
+        HStack(spacing: 6) {
+            Text(title)
+                .font(TimeBiteTypography.font(.caption, weight: .medium))
+                .frame(width: 58, alignment: .leading)
+            TextField("0", text: actionTimeBinding(action: action, actual: actual, component: .hours, now: now))
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 42)
+            Text("h")
+                .font(TimeBiteTypography.font(.caption2))
+            TextField("0", text: actionTimeBinding(action: action, actual: actual, component: .minutes, now: now))
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 42)
+            Text("m")
+                .font(TimeBiteTypography.font(.caption2))
+        }
+    }
+
+    private func actionTimeBinding(action: Action, actual: Bool, component: BaselineTimeComponent, now: Date) -> Binding<String> {
+        Binding(
+            get: {
+                let total = actual ? model.actualMinutes(for: action, now: now) : model.plannedMinutes(for: action)
+                return component == .hours ? "\(total / 60)" : "\(total % 60)"
+            },
+            set: { newValue in
+                let current = actual ? model.actualMinutes(for: action, now: now) : model.plannedMinutes(for: action)
+                let value = max(0, Int(newValue) ?? 0)
+                let hours = component == .hours ? value : current / 60
+                let minutes = component == .minutes ? min(value, 59) : current % 60
+                let total = hours * 60 + minutes
+                if actual {
+                    model.setManualActualMinutes(for: action, totalMinutes: total, now: now)
+                } else {
+                    model.setEstimatedMinutes(for: action, minutes: total)
+                }
+            }
+        )
+    }
+
+    private enum BaselineTimeComponent {
+        case hours
+        case minutes
+    }
+
+    private func baselineTimeBinding(id: UUID, actual: Bool, component: BaselineTimeComponent) -> Binding<String> {
+        Binding(
+            get: {
+                let total = model.baselineMinutes(id: id, actual: actual)
+                return component == .hours ? "\(total / 60)" : "\(total % 60)"
+            },
+            set: { newValue in
+                let current = model.baselineMinutes(id: id, actual: actual)
+                let value = max(0, Int(newValue) ?? 0)
+                let hours = component == .hours ? value : current / 60
+                let minutes = component == .minutes ? min(value, 59) : current % 60
+                if actual {
+                    model.setBaselineActualMinutes(id: id, minutes: hours * 60 + minutes)
+                } else {
+                    model.setBaselineMinutes(id: id, minutes: hours * 60 + minutes)
+                }
+            }
+        )
     }
 
     private func weeklyPlanCard(now: Date) -> some View {
@@ -1111,13 +1266,6 @@ struct NowView: View {
                     Text(goalTitle)
                         .font(TimeBiteTypography.font(.caption))
                         .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
-                }
-                if action.status != .inbox {
-                    Text(action.status.rawValue.capitalized)
-                        .font(TimeBiteTypography.font(.caption2, weight: .bold))
-                        .textCase(.uppercase)
-                        .tracking(TimeBiteTypography.eyebrowTracking)
-                        .foregroundStyle(color(for: model.currentSelectionColor(for: action)))
                 }
             } else {
                 Text("No action selected yet")
@@ -1595,7 +1743,7 @@ private struct TimerDialView: View {
                     .font(TimeBiteTypography.font(.headline, weight: .semibold))
                 Text(secondaryLabel)
                     .font(TimeBiteTypography.font(.caption))
-                    .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
+                    .foregroundStyle(TimeBitePalette.primaryText(for: colorScheme))
             }
             .multilineTextAlignment(.center)
             .padding(.horizontal, 12)

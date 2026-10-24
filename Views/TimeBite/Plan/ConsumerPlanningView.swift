@@ -58,7 +58,7 @@ struct ConsumerPlanningView: View {
     }
 
     private var introCard: some View {
-        consumerCard(title: "My plan", symbol: "person.crop.circle", tint: TimeBitePalette.green) {
+        consumerCard(title: "Plan", symbol: "person.crop.circle", tint: TimeBitePalette.green) {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Plan it yourself")
                     .font(TimeBiteTypography.font(.title3, weight: .semibold))

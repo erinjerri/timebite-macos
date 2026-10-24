@@ -150,18 +150,34 @@ struct BaselineNeed: Identifiable, Codable, Hashable, Sendable {
     var id: UUID
     var title: String
     var estimateMinutes: Int
+    var actualMinutes: Int
     var notes: String
+
+    private enum CodingKeys: String, CodingKey {
+        case id, title, estimateMinutes, actualMinutes, notes
+    }
 
     init(
         id: UUID = UUID(),
         title: String,
         estimateMinutes: Int,
+        actualMinutes: Int = 0,
         notes: String
     ) {
         self.id = id
         self.title = title
         self.estimateMinutes = max(0, estimateMinutes)
+        self.actualMinutes = max(0, actualMinutes)
         self.notes = notes
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        title = try container.decode(String.self, forKey: .title)
+        estimateMinutes = max(0, try container.decode(Int.self, forKey: .estimateMinutes))
+        actualMinutes = max(0, try container.decodeIfPresent(Int.self, forKey: .actualMinutes) ?? 0)
+        notes = try container.decode(String.self, forKey: .notes)
     }
 }
 
@@ -272,14 +288,10 @@ struct NowWorkspacePreferences: Codable, Hashable, Sendable {
 
     static var defaultBaselineNeeds: [BaselineNeed] {
         [
-            BaselineNeed(title: "Sleep", estimateMinutes: 8 * 60, notes: "A planning estimate, not a medical truth."),
-            BaselineNeed(title: "Meals", estimateMinutes: 2 * 60, notes: "Time for eating and simple cleanup."),
-            BaselineNeed(title: "Hygiene", estimateMinutes: 45, notes: "A daily care estimate, not a rule."),
-            BaselineNeed(title: "Cleaning", estimateMinutes: 30, notes: "Light upkeep and resets."),
-            BaselineNeed(title: "Errands", estimateMinutes: 60, notes: "Trips, pickups, and small logistics."),
-            BaselineNeed(title: "Exercise", estimateMinutes: 45, notes: "Movement and recovery time."),
-            BaselineNeed(title: "Family / personal care", estimateMinutes: 45, notes: "Relationship and care time."),
-            BaselineNeed(title: "Other necessities", estimateMinutes: 30, notes: "Anything ordinary the day demands.")
+            BaselineNeed(title: "Sleep", estimateMinutes: 8 * 60, notes: "A planning estimate you can adjust each morning."),
+            BaselineNeed(title: "Meals", estimateMinutes: 2 * 60, notes: "Keep meal planning within three hours."),
+            BaselineNeed(title: "Rest", estimateMinutes: 60, notes: "Recovery and unstructured time."),
+            BaselineNeed(title: "Fitness", estimateMinutes: 60, notes: "Keep fitness planning within two hours.")
         ]
     }
 

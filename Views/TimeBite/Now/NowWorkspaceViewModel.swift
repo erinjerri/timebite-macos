@@ -76,9 +76,14 @@ final class LocalNowWorkspacePreferencesStore {
 
     func load() -> NowWorkspacePreferences {
         guard let data = defaults.data(forKey: Self.key),
-              let preferences = try? decoder.decode(NowWorkspacePreferences.self, from: data),
+              var preferences = try? decoder.decode(NowWorkspacePreferences.self, from: data),
               preferences.schemaVersion == NowWorkspacePreferences.currentSchemaVersion else {
             return NowWorkspacePreferences()
+        }
+        let legacyTitles = ["Hygiene", "Cleaning", "Errands", "Exercise", "Family / personal care", "Other necessities"]
+        if preferences.baselineNeeds.contains(where: { legacyTitles.contains($0.title) }) {
+            preferences.baselineNeeds = NowWorkspacePreferences.defaultBaselineNeeds
+            save(preferences)
         }
         return preferences
     }
@@ -373,15 +378,23 @@ final class NowWorkspaceViewModel: ObservableObject {
         guard !titles.isEmpty else { return }
 
         do {
+            let estimate = try validatedDraftEstimate()
+            let actualMinutes = try validatedDraftActualMinutes()
             let savedActions = try titles.map { title in
                 let action = Action(
                     title: title,
-                    estimatedDuration: SchedulingDefaults.defaultBlockDuration,
+                    estimatedDuration: estimate.duration.map { Double($0) },
+                    startDate: estimate.startDate,
+                    targetDate: estimate.endDate,
                     status: .inbox
                 )
                 try repository.save(action)
                 return action
             }
+            for action in savedActions {
+                manualActualMinutesByActionID[action.id] = actualMinutes
+            }
+            saveManualActualMinutes()
             selectedActionID = savedActions.first?.id
             reload()
         } catch {
@@ -493,13 +506,32 @@ final class NowWorkspaceViewModel: ObservableObject {
 
     func setBaselineMinutes(id: UUID, minutes: Int) {
         guard let index = preferences.baselineNeeds.firstIndex(where: { $0.id == id }) else { return }
-        preferences.baselineNeeds[index].estimateMinutes = max(0, minutes)
+        preferences.baselineNeeds[index].estimateMinutes = max(0, min(minutes, baselineLimit(for: preferences.baselineNeeds[index].title)))
+        persistPreferences()
+    }
+
+    func baselineMinutes(id: UUID, actual: Bool) -> Int {
+        guard let need = preferences.baselineNeeds.first(where: { $0.id == id }) else { return 0 }
+        return actual ? need.actualMinutes : need.estimateMinutes
+    }
+
+    func setBaselineActualMinutes(id: UUID, minutes: Int) {
+        guard let index = preferences.baselineNeeds.firstIndex(where: { $0.id == id }) else { return }
+        preferences.baselineNeeds[index].actualMinutes = max(0, min(minutes, baselineLimit(for: preferences.baselineNeeds[index].title)))
         persistPreferences()
     }
 
     func setBaselineTitle(id: UUID, title: String) {
         guard let index = preferences.baselineNeeds.firstIndex(where: { $0.id == id }) else { return }
         preferences.baselineNeeds[index].title = title
+        persistPreferences()
+    }
+
+    func addBaselineNeed(title: String) {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              !preferences.baselineNeeds.contains(where: { $0.title.caseInsensitiveCompare(trimmed) == .orderedSame }) else { return }
+        preferences.baselineNeeds.append(BaselineNeed(title: trimmed, estimateMinutes: 0, notes: "Custom daily allocation."))
         persistPreferences()
     }
 
@@ -610,6 +642,19 @@ final class NowWorkspaceViewModel: ObservableObject {
         Int((action.estimatedDuration ?? SchedulingDefaults.defaultBlockDuration) / 60)
     }
 
+    func setEstimatedMinutes(for action: Action, minutes: Int) {
+        update(action) { updated in
+            updated.estimatedDuration = Double(max(0, minutes) * 60)
+        }
+    }
+
+    func setManualActualMinutes(for action: Action, totalMinutes: Int, now: Date) {
+        let trackedMinutes = actualMinutes(for: sessions.filter { $0.actionID == action.id }, now: now)
+        manualActualMinutesByActionID[action.id] = max(0, totalMinutes - trackedMinutes)
+        saveManualActualMinutes()
+        objectWillChange.send()
+    }
+
     func actualMinutes(for action: Action, now: Date) -> Int {
         let sessions = sessions.filter { $0.actionID == action.id }
         return manualActualMinutesByActionID[action.id, default: 0] + actualMinutes(for: sessions, now: now)
@@ -635,10 +680,11 @@ final class NowWorkspaceViewModel: ObservableObject {
 
     func dailyLanes(now: Date) -> [NowLaneSummary] {
         let baselineMinutes = baselineMinutesForToday()
+        let baselineActualMinutes = baselineActualMinutesForToday()
         let actualProjectMinutes = actualProjectMinutes(now: now)
         let plannedProjectMinutes = plannedProjectMinutes(now: now)
         let totalPlanned = baselineMinutes + plannedProjectMinutes
-        let totalActual = actualProjectMinutes
+        let totalActual = baselineActualMinutes + actualProjectMinutes
         let remainingMinutes = max(0, 24 * 60 - totalPlanned)
         let overflowMinutes = max(0, totalPlanned - 24 * 60)
 
@@ -648,7 +694,7 @@ final class NowWorkspaceViewModel: ObservableObject {
                 title: "Baseline life needs",
                 subtitle: "Editable estimate, not a truth claim",
                 plannedMinutes: baselineMinutes,
-                actualMinutes: 0,
+                actualMinutes: baselineActualMinutes,
                 colorToken: .neutral,
                 isBaseline: true
             )
@@ -957,6 +1003,19 @@ final class NowWorkspaceViewModel: ObservableObject {
                 return total + sleepEstimate
             }
             return total + need.estimateMinutes
+        }
+    }
+
+    private func baselineActualMinutesForToday() -> Int {
+        preferences.baselineNeeds.reduce(0) { $0 + $1.actualMinutes }
+    }
+
+    private func baselineLimit(for title: String) -> Int {
+        switch title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "sleep": 8 * 60
+        case "meals": 3 * 60
+        case "rest", "fitness": 2 * 60
+        default: 12 * 60
         }
     }
 

@@ -1,4 +1,5 @@
 import SwiftUI
+import Foundation
 
 struct CalendarActionSidebar: View {
     @ObservedObject var model: CalendarViewModel
@@ -206,6 +207,7 @@ private struct EstimateFeedbackView: View {
 }
 
 private struct CalendarSuggestionConfirmationView: View {
+    @Environment(\.openURL) private var openURL
     let suggestion: ScheduledSuggestion
     let onYes: () -> Void
     let onNo: () -> Void
@@ -221,11 +223,29 @@ private struct CalendarSuggestionConfirmationView: View {
                 .foregroundStyle(.secondary)
             HStack {
                 Button("Yes") { onYes() }.buttonStyle(.borderedProminent)
+                Button("Add to Google Calendar") {
+                    if let url = googleCalendarURL {
+                        openURL(url)
+                    }
+                }
                 Button("No") { onNo() }
                 Button("Move") { onMove() }
             }
         }
         .padding(24)
+    }
+
+    private var googleCalendarURL: URL? {
+        var components = URLComponents(string: "https://calendar.google.com/calendar/u/0/r/eventedit")
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd'T'HHmmss'Z'"
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        components?.queryItems = [
+            URLQueryItem(name: "text", value: suggestion.block.title),
+            URLQueryItem(name: "dates", value: "\(formatter.string(from: suggestion.block.startDate))/\(formatter.string(from: suggestion.block.endDate))"),
+            URLQueryItem(name: "details", value: suggestion.action.notes)
+        ]
+        return components?.url
     }
 }
 

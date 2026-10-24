@@ -1,311 +1,520 @@
 import SwiftUI
 
 struct PlanningTimelineView: View {
-    @StateObject private var viewModel: TimelineViewModel
+    @StateObject private var viewModel: PortfolioTimelineViewModel
 
     @MainActor
     init() {
-        _viewModel = StateObject(wrappedValue: TimelineViewModel())
+        _viewModel = StateObject(wrappedValue: PortfolioTimelineViewModel())
     }
 
     @MainActor
-    init(viewModel: @autoclosure @escaping () -> TimelineViewModel) {
+    init(viewModel: @autoclosure @escaping () -> PortfolioTimelineViewModel) {
         _viewModel = StateObject(wrappedValue: viewModel())
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            toolbar
+            PortfolioTimelineToolbar(viewModel: viewModel)
             Divider()
-            if viewModel.visibleRows.isEmpty {
-                ContentUnavailableView(
-                    "No timeline items",
-                    systemImage: "chart.bar.xaxis",
-                    description: Text("Add dates to Goals, Milestones, Projects, or Actions to visualize the intended trajectory.")
-                )
-            } else {
-                TimelineCanvas(viewModel: viewModel)
+            PortfolioSummaryStrip(viewModel: viewModel)
+            Divider()
+            HStack(spacing: 0) {
+                PortfolioTimelineCanvas(viewModel: viewModel)
+                Divider()
+                PortfolioInspector(row: viewModel.selectedRow)
+                    .frame(width: 292)
             }
         }
-        .alert("Timeline could not be updated", isPresented: Binding(
-            get: { viewModel.errorMessage != nil },
-            set: { if !$0 { viewModel.errorMessage = nil } }
-        )) { Button("OK") { viewModel.errorMessage = nil } } message: { Text(viewModel.errorMessage ?? "") }
-        .sheet(item: $viewModel.selectedNode) { TimelineInspector(node: $0) }
+        .background(Color(nsColor: .windowBackgroundColor))
+        .accessibilityIdentifier("portfolio-timeline")
     }
+}
 
-    private var toolbar: some View {
+private struct PortfolioTimelineToolbar: View {
+    @ObservedObject var viewModel: PortfolioTimelineViewModel
+
+    var body: some View {
         HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("PORTFOLIO ROADMAP")
+                    .font(TimeBiteTypography.font(.caption2, weight: .semibold))
+                    .tracking(TimeBiteTypography.eyebrowTracking)
+                    .foregroundStyle(.secondary)
+                Text(viewModel.rangeTitle)
+                    .font(TimeBiteTypography.font(.headline, weight: .semibold))
+                    .contentTransition(.numericText())
+            }
+            .frame(minWidth: 150, alignment: .leading)
+
             Button { viewModel.navigate(-1) } label: { Image(systemName: "chevron.left") }
-                .help("Previous period")
+                .help("Previous \(viewModel.scale.title.lowercased())")
             Button("Today") { viewModel.goToToday() }
                 .keyboardShortcut("t", modifiers: [.command])
             Button { viewModel.navigate(1) } label: { Image(systemName: "chevron.right") }
-                .help("Next period")
-            Text(viewModel.rangeTitle)
-                .font(TimeBiteTypography.font(.headline, weight: .semibold))
-                .frame(minWidth: 150, alignment: .leading)
+                .help("Next \(viewModel.scale.title.lowercased())")
+            Button("Fit") { viewModel.fitPortfolio() }
+                .help("Fit September 2026 through December 2029")
+
             Spacer()
-            Picker("Timeline scale", selection: $viewModel.scale) {
-                ForEach(TimelineScale.allCases) { Text($0.title).tag($0) }
+
+            Picker(
+                "Timeline scale",
+                selection: Binding(
+                    get: { viewModel.scale },
+                    set: { viewModel.setScale($0) }
+                )
+            ) {
+                ForEach(PortfolioZoomScale.allCases) { scale in
+                    Text(scale.title).tag(scale)
+                }
             }
             .pickerStyle(.segmented)
-            .frame(width: 190)
+            .labelsHidden()
+            .frame(width: 250)
+            .accessibilityIdentifier("portfolio-zoom")
         }
-        .padding(.horizontal, 20)
+        .buttonStyle(.bordered)
+        .controlSize(.small)
+        .padding(.horizontal, 18)
         .padding(.vertical, 10)
     }
 }
 
-private struct TimelineCanvas: View {
-    @ObservedObject var viewModel: TimelineViewModel
-    private let labelWidth: CGFloat = 280
-    private let rowHeight: CGFloat = 42
+private struct PortfolioSummaryStrip: View {
+    @ObservedObject var viewModel: PortfolioTimelineViewModel
+
+    var body: some View {
+        HStack(spacing: 22) {
+            Label("8 life + venture lanes", systemImage: "square.3.layers.3d")
+            Label("Same plan at every zoom", systemImage: "arrow.left.and.right")
+            if let milestone = viewModel.nextMilestone {
+                Label {
+                    Text("Next: \(milestone.title) · \(milestone.endDate.formatted(date: .abbreviated, time: .omitted))")
+                } icon: {
+                    Image(systemName: "diamond.fill")
+                }
+            }
+            Spacer()
+            Text("Seed portfolio · editable model")
+                .foregroundStyle(.tertiary)
+        }
+        .font(TimeBiteTypography.font(.caption, weight: .medium))
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 18)
+        .frame(height: 42)
+    }
+}
+
+private struct PortfolioTimelineCanvas: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @ObservedObject var viewModel: PortfolioTimelineViewModel
+    private let labelWidth: CGFloat = 300
+    private let rowHeight: CGFloat = 40
 
     var body: some View {
         GeometryReader { geometry in
-            let timelineWidth = max(640, geometry.size.width - labelWidth)
-            ScrollView([.vertical, .horizontal]) {
+            let timelineWidth = width(for: geometry.size.width)
+            ScrollView([.horizontal, .vertical]) {
                 VStack(spacing: 0) {
-                    header(width: timelineWidth)
+                    header(timelineWidth: timelineWidth)
                     ZStack(alignment: .topLeading) {
-                        grid(width: timelineWidth, rowCount: viewModel.visibleRows.count)
+                        grid(timelineWidth: timelineWidth)
                         VStack(spacing: 0) {
-                            ForEach(viewModel.visibleRows) { row in
-                                TimelineRowView(
+                            ForEach(viewModel.rows) { row in
+                                PortfolioTimelineRowView(
                                     row: row,
                                     interval: viewModel.visibleInterval,
                                     labelWidth: labelWidth,
                                     timelineWidth: timelineWidth,
                                     rowHeight: rowHeight,
-                                    isExpanded: viewModel.expanded.contains(row.id),
-                                    onToggle: { viewModel.toggle(row.node) },
-                                    onSelect: { viewModel.selectedNode = row.node },
-                                    onMove: { viewModel.move(row.node, byDays: $0) },
-                                    onResizeStart: { viewModel.resizeStart(row.node, byDays: $0) },
-                                    onResizeTarget: { viewModel.resizeTarget(row.node, byDays: $0) }
+                                    isSelected: row.id == viewModel.selectedID,
+                                    onSelect: { viewModel.select(row) }
                                 )
                             }
                         }
+                        todayLine(timelineWidth: timelineWidth)
                     }
                 }
-                .frame(width: labelWidth + timelineWidth)
+                .frame(width: labelWidth + timelineWidth, alignment: .topLeading)
             }
+            .background(TimeBitePalette.background(for: colorScheme))
         }
     }
 
-    private func header(width: CGFloat) -> some View {
+    private func header(timelineWidth: CGFloat) -> some View {
         HStack(spacing: 0) {
-            Text("INTENDED TRAJECTORY")
-                .font(TimeBiteTypography.font(.caption, weight: .semibold))
-                .tracking(TimeBiteTypography.eyebrowTracking)
-                .foregroundStyle(.secondary)
-                .padding(.leading, 18)
-                .frame(width: labelWidth, height: 44, alignment: .leading)
-            ZStack(alignment: .leading) {
-                ForEach(viewModel.gridDates, id: \.self) { date in
-                    Text(gridLabel(date))
-                        .font(TimeBiteTypography.font(.caption, weight: .medium))
-                        .foregroundStyle(.secondary)
-                        .offset(x: xPosition(date, width: width) + 6)
+            HStack {
+                Text("PLAN HIERARCHY")
+                Spacer()
+                Text("\(viewModel.rows.count) visible")
+                    .foregroundStyle(.tertiary)
+            }
+            .font(TimeBiteTypography.font(.caption2, weight: .semibold))
+            .tracking(TimeBiteTypography.eyebrowTracking)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 14)
+            .frame(width: labelWidth, height: 48)
+
+            ZStack(alignment: .topLeading) {
+                ForEach(viewModel.ticks) { tick in
+                    Text(tick.label)
+                        .font(TimeBiteTypography.font(.caption, weight: tick.isMajor ? .semibold : .medium))
+                        .foregroundStyle(tick.isMajor ? .primary : .secondary)
+                        .offset(x: xPosition(tick.date, width: timelineWidth) + 8, y: 15)
                 }
             }
-            .frame(width: width, height: 44, alignment: .leading)
+            .frame(width: timelineWidth, height: 48, alignment: .leading)
         }
-        .background(.thinMaterial)
+        .background(TimeBitePalette.surface(for: colorScheme))
+        .overlay(alignment: .bottom) { Divider() }
     }
 
-    private func grid(width: CGFloat, rowCount: Int) -> some View {
+    private func grid(timelineWidth: CGFloat) -> some View {
         ZStack(alignment: .topLeading) {
-            ForEach(viewModel.gridDates, id: \.self) { date in
+            Rectangle()
+                .fill(TimeBitePalette.surface(for: colorScheme))
+                .frame(width: labelWidth, height: CGFloat(viewModel.rows.count) * rowHeight)
+
+            ForEach(viewModel.ticks) { tick in
                 Rectangle()
-                    .fill(Color.secondary.opacity(0.12))
-                    .frame(width: 1, height: CGFloat(rowCount) * rowHeight)
-                    .offset(x: labelWidth + xPosition(date, width: width))
+                    .fill(Color.secondary.opacity(tick.isMajor ? 0.20 : 0.10))
+                    .frame(width: 1, height: CGFloat(viewModel.rows.count) * rowHeight)
+                    .offset(x: labelWidth + xPosition(tick.date, width: timelineWidth))
             }
+        }
+    }
+
+    @ViewBuilder
+    private func todayLine(timelineWidth: CGFloat) -> some View {
+        let today = Date()
+        if viewModel.visibleInterval.contains(today) {
+            VStack(spacing: 2) {
+                Text("TODAY")
+                    .font(TimeBiteTypography.font(.caption2, weight: .semibold))
+                    .foregroundStyle(.red)
+                    .fixedSize()
+                Rectangle().fill(Color.red.opacity(0.72)).frame(width: 1)
+            }
+            .frame(height: CGFloat(viewModel.rows.count) * rowHeight + 20)
+            .offset(x: labelWidth + xPosition(today, width: timelineWidth) - 1, y: -18)
+            .allowsHitTesting(false)
+        }
+    }
+
+    private func width(for availableWidth: CGFloat) -> CGFloat {
+        if viewModel.isFitted { return max(1_460, availableWidth - labelWidth) }
+        switch viewModel.scale {
+        case .month: return max(900, availableWidth - labelWidth)
+        case .quarter: return max(920, availableWidth - labelWidth)
+        case .year: return max(1_080, availableWidth - labelWidth)
         }
     }
 
     private func xPosition(_ date: Date, width: CGFloat) -> CGFloat {
-        let total = viewModel.visibleInterval.duration
-        return CGFloat(date.timeIntervalSince(viewModel.visibleInterval.start) / total) * width
-    }
-
-    private func gridLabel(_ date: Date) -> String {
-        viewModel.scale == .month
-            ? date.formatted(.dateTime.month(.abbreviated).day())
-            : date.formatted(.dateTime.month(.wide))
+        let duration = max(1, viewModel.visibleInterval.duration)
+        return CGFloat(date.timeIntervalSince(viewModel.visibleInterval.start) / duration) * width
     }
 }
 
-private struct TimelineRowView: View {
-    let row: TimelineRow
+private struct PortfolioTimelineRowView: View {
+    @Environment(\.colorScheme) private var colorScheme
+    let row: PortfolioTimelineRow
     let interval: DateInterval
     let labelWidth: CGFloat
     let timelineWidth: CGFloat
     let rowHeight: CGFloat
-    let isExpanded: Bool
-    let onToggle: () -> Void
+    let isSelected: Bool
     let onSelect: () -> Void
-    let onMove: (Int) -> Void
-    let onResizeStart: (Int) -> Void
-    let onResizeTarget: (Int) -> Void
 
     var body: some View {
         HStack(spacing: 0) {
-            HStack(spacing: 6) {
-                if row.node.children.isEmpty {
-                    Color.clear.frame(width: 16, height: 16)
-                } else {
-                    Button(action: onToggle) {
-                        Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
-                            .font(.caption2)
-                    }
-                    .buttonStyle(.plain)
-                    .help(isExpanded ? "Collapse" : "Expand")
-                }
+            HStack(spacing: 7) {
                 Image(systemName: symbol)
-                    .foregroundStyle(color)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(symbolColor)
                     .frame(width: 16)
-                Text(row.node.title)
-                    .font(TimeBiteTypography.font(.body, weight: row.depth == 0 ? .semibold : .regular))
-                    .lineLimit(1)
-                Spacer()
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(row.title)
+                        .font(TimeBiteTypography.font(.body, weight: row.depth == 0 ? .semibold : .regular))
+                        .lineLimit(1)
+                    if row.depth == 0 {
+                        Text(row.subtitle)
+                            .font(TimeBiteTypography.font(.caption2))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                }
+                Spacer(minLength: 4)
+                if row.status == .blocked {
+                    Image(systemName: "exclamationmark.circle.fill")
+                        .foregroundStyle(.orange)
+                        .help("Blocked")
+                }
             }
-            .padding(.leading, 12 + CGFloat(row.depth) * 18)
+            .padding(.leading, 12 + CGFloat(row.depth) * 17)
             .padding(.trailing, 10)
             .frame(width: labelWidth, height: rowHeight)
-            .contentShape(Rectangle())
-            .onTapGesture(perform: onSelect)
 
             ZStack(alignment: .leading) {
-                if let start = row.node.startDate, let target = row.node.targetDate,
-                   target >= interval.start, start <= interval.end {
-                    let clippedStart = max(start, interval.start)
-                    let clippedTarget = min(target, interval.end)
-                    let x = position(clippedStart)
-                    let width = max(12, position(clippedTarget) - x)
-                    TimelineBar(
-                        title: row.node.title,
-                        color: color,
-                        width: width,
-                        pointsPerDay: timelineWidth / max(1, interval.duration / 86_400),
-                        onSelect: onSelect,
-                        onMove: onMove,
-                        onResizeStart: onResizeStart,
-                        onResizeTarget: onResizeTarget
-                    )
-                    .offset(x: x)
-                } else if !row.node.hasTimeline {
-                    Text("No dates")
-                        .font(TimeBiteTypography.font(.caption))
-                        .foregroundStyle(.tertiary)
-                        .padding(.leading, 8)
-                }
+                timelineMark
             }
             .frame(width: timelineWidth, height: rowHeight, alignment: .leading)
         }
-        .overlay(alignment: .bottom) { Divider().opacity(0.45) }
+        .background(isSelected ? TimeBitePalette.sky.opacity(colorScheme == .dark ? 0.12 : 0.18) : Color.clear)
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onSelect)
+        .overlay(alignment: .bottom) { Divider().opacity(0.40) }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(row.node.kind.rawValue), \(row.node.title)")
+        .accessibilityLabel("\(row.title), \(row.status.rawValue), \(row.flexibility.rawValue) dates")
+    }
+
+    @ViewBuilder
+    private var timelineMark: some View {
+        if row.endDate >= interval.start && row.startDate < interval.end {
+            let clippedStart = max(row.startDate, interval.start)
+            let clippedEnd = min(row.endDate, interval.end)
+            let x = position(clippedStart)
+            let barWidth = max(12, position(clippedEnd) - x)
+
+            if row.isDecisionGate {
+                DecisionGateMark().offset(x: x - 9)
+            } else if row.kind == .milestone {
+                MilestoneMark(isFlexible: row.flexibility == .flexible).offset(x: x - 7)
+            } else if row.isRecurring {
+                RecurringMark(width: barWidth).offset(x: x)
+            } else if row.kind == .personalConstraint {
+                PersonalConstraintMark(width: barWidth).offset(x: x)
+            } else {
+                PortfolioBar(row: row, width: barWidth).offset(x: x)
+            }
+        }
     }
 
     private func position(_ date: Date) -> CGFloat {
-        CGFloat(date.timeIntervalSince(interval.start) / interval.duration) * timelineWidth
-    }
-
-    private var color: Color {
-        switch row.node.kind {
-        case .goal: TimeBitePalette.teal
-        case .milestone: TimeBitePalette.sky
-        case .project: TimeBitePalette.gold
-        case .action: TimeBitePalette.violet
-        }
+        CGFloat(date.timeIntervalSince(interval.start) / max(1, interval.duration)) * timelineWidth
     }
 
     private var symbol: String {
-        switch row.node.kind {
-        case .goal: "target"
-        case .milestone: "flag.fill"
-        case .project: "folder.fill"
-        case .action: "checkmark.square"
+        if row.isDecisionGate { return "arrow.triangle.branch" }
+        if row.isRecurring { return "repeat" }
+        switch row.kind {
+        case .lifeArea: return "square.3.layers.3d"
+        case .program: return "rectangle.stack"
+        case .project: return "folder"
+        case .phase: return "timeline.selection"
+        case .milestone: return "diamond.fill"
+        case .action: return "checkmark.square"
+        case .personalConstraint: return "heart.text.square"
+        }
+    }
+
+    private var symbolColor: Color {
+        switch row.status {
+        case .active: TimeBitePalette.sky
+        case .blocked: .orange
+        case .atRisk: .red
+        case .complete: TimeBitePalette.green
+        case .idea, .planned, .paused: .secondary
         }
     }
 }
 
-private struct TimelineBar: View {
-    let title: String
-    let color: Color
+private struct PortfolioBar: View {
+    let row: PortfolioTimelineRow
     let width: CGFloat
-    let pointsPerDay: CGFloat
-    let onSelect: () -> Void
-    let onMove: (Int) -> Void
-    let onResizeStart: (Int) -> Void
-    let onResizeTarget: (Int) -> Void
 
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 6)
-                .fill(color.gradient)
-            Text(title)
-                .font(TimeBiteTypography.font(.caption, weight: .semibold))
-                .foregroundStyle(Color.black.opacity(0.78))
-                .lineLimit(1)
-                .padding(.horizontal, 10)
-            HStack {
-                resizeHandle(action: onResizeStart)
-                Spacer()
-                resizeHandle(action: onResizeTarget)
+        ZStack(alignment: .leading) {
+            RoundedRectangle(cornerRadius: row.kind == .lifeArea ? 3 : 6, style: .continuous)
+                .fill(fillColor.opacity(row.kind == .lifeArea ? 0.34 : 0.72))
+            if row.progress > 0 {
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(fillColor)
+                    .frame(width: max(4, width * row.progress))
+            }
+            if width > 88 && row.kind != .lifeArea {
+                Text(row.title)
+                    .font(TimeBiteTypography.font(.caption2, weight: .semibold))
+                    .foregroundStyle(Color.black.opacity(0.72))
+                    .lineLimit(1)
+                    .padding(.horizontal, 8)
             }
         }
-        .frame(width: width, height: 28)
-        .contentShape(Rectangle())
-        .onTapGesture(perform: onSelect)
-        .gesture(DragGesture(minimumDistance: 4).onEnded { onMove(days(for: $0.translation.width)) })
-        .help("Drag to move. Drag either edge to resize.")
+        .frame(width: width, height: row.kind == .lifeArea ? 8 : 24)
+        .overlay {
+            if row.status == .blocked {
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .stroke(Color.orange, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+            }
+        }
     }
 
-    private func resizeHandle(action: @escaping (Int) -> Void) -> some View {
-        Capsule()
-            .fill(Color.black.opacity(0.4))
-            .frame(width: 5, height: 18)
-            .padding(.horizontal, 3)
-            .contentShape(Rectangle().inset(by: -5))
-            .highPriorityGesture(DragGesture(minimumDistance: 2).onEnded { action(days(for: $0.translation.width)) })
-    }
-
-    private func days(for points: CGFloat) -> Int {
-        guard pointsPerDay > 0 else { return 0 }
-        return Int((points / pointsPerDay).rounded())
+    private var fillColor: Color {
+        switch row.status {
+        case .active: TimeBitePalette.sky
+        case .blocked: Color.orange.opacity(0.42)
+        case .atRisk: Color.red.opacity(0.56)
+        case .complete: TimeBitePalette.green
+        case .paused: Color.secondary.opacity(0.30)
+        case .idea: Color.secondary.opacity(0.22)
+        case .planned: TimeBitePalette.teal
+        }
     }
 }
 
-private struct TimelineInspector: View {
-    @Environment(\.dismiss) private var dismiss
-    let node: TimelineNode
+private struct MilestoneMark: View {
+    let isFlexible: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(node.kind.rawValue.uppercased()).font(TimeBiteTypography.font(.caption, weight: .semibold)).foregroundStyle(.secondary)
-                    Text(node.title).font(TimeBiteTypography.font(.title2, weight: .semibold))
+        RoundedRectangle(cornerRadius: 2)
+            .fill(isFlexible ? Color.secondary.opacity(0.36) : TimeBitePalette.gold)
+            .frame(width: 14, height: 14)
+            .rotationEffect(.degrees(45))
+            .overlay {
+                if isFlexible {
+                    RoundedRectangle(cornerRadius: 2)
+                        .stroke(Color.secondary, style: StrokeStyle(lineWidth: 1, dash: [2, 2]))
+                        .rotationEffect(.degrees(45))
                 }
-                Spacer()
-                Button("Done") { dismiss() }.keyboardShortcut(.defaultAction)
             }
-            LabeledContent("Start", value: node.startDate?.formatted(date: .long, time: .omitted) ?? "Not set")
-            LabeledContent("Target", value: node.targetDate?.formatted(date: .long, time: .omitted) ?? "Not set")
-            Text("Timeline edits update this planning entity directly. No visual coordinates are persisted.")
-                .font(TimeBiteTypography.font(.callout))
-                .foregroundStyle(.secondary)
+    }
+}
+
+private struct DecisionGateMark: View {
+    var body: some View {
+        RoundedRectangle(cornerRadius: 2)
+            .fill(Color.clear)
+            .frame(width: 18, height: 18)
+            .overlay { RoundedRectangle(cornerRadius: 2).stroke(TimeBitePalette.violet, lineWidth: 2) }
+            .rotationEffect(.degrees(45))
+    }
+}
+
+private struct RecurringMark: View {
+    let width: CGFloat
+
+    var body: some View {
+        HStack(spacing: 5) {
+            ForEach(0..<min(160, max(1, Int(width / 11))), id: \.self) { _ in
+                Capsule().fill(TimeBitePalette.violet.opacity(0.72)).frame(width: 6, height: 16)
+            }
         }
-        .padding(24)
-        .frame(width: 420)
+        .frame(width: width, height: 20, alignment: .leading)
+        .clipped()
+    }
+}
+
+private struct PersonalConstraintMark: View {
+    let width: CGFloat
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 4, style: .continuous)
+            .fill(Color.secondary.opacity(0.12))
+            .overlay {
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .stroke(Color.secondary.opacity(0.42), style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
+            }
+            .frame(width: width, height: 22)
+    }
+}
+
+private struct PortfolioInspector: View {
+    let row: PortfolioTimelineRow?
+
+    var body: some View {
+        Group {
+            if let row {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 18) {
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text(inspectorLabel(for: row))
+                                .font(TimeBiteTypography.font(.caption2, weight: .semibold))
+                                .tracking(TimeBiteTypography.eyebrowTracking)
+                                .foregroundStyle(.secondary)
+                            Text(row.title)
+                                .font(TimeBiteTypography.font(.title3, weight: .semibold))
+                            if !row.subtitle.isEmpty {
+                                Text(row.subtitle)
+                                    .font(TimeBiteTypography.font(.callout))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+
+                        Divider()
+                        inspectorField("Status", row.status.rawValue.displayTitle)
+                        inspectorField("Start", row.startDate.formatted(date: .long, time: .omitted))
+                        inspectorField("End", row.endDate.formatted(date: .long, time: .omitted))
+                        inspectorField("Flexibility", row.flexibility.rawValue.displayTitle)
+                        inspectorField("Priority", row.priority.rawValue.displayTitle)
+                        if row.progress > 0 {
+                            VStack(alignment: .leading, spacing: 6) {
+                                inspectorField("Progress", row.progress.formatted(.percent.precision(.fractionLength(0))))
+                                ProgressView(value: row.progress)
+                            }
+                        }
+                        if !row.conditions.isEmpty {
+                            Divider()
+                            Text("CONDITIONS")
+                                .font(TimeBiteTypography.font(.caption2, weight: .semibold))
+                                .tracking(TimeBiteTypography.eyebrowTracking)
+                                .foregroundStyle(.secondary)
+                            ForEach(row.conditions, id: \.self) { condition in
+                                Label(condition, systemImage: "circle")
+                                    .font(TimeBiteTypography.font(.callout))
+                            }
+                        }
+                        if !row.notes.isEmpty {
+                            Divider()
+                            Text(row.notes)
+                                .font(TimeBiteTypography.font(.callout))
+                                .foregroundStyle(.secondary)
+                                .lineSpacing(3)
+                        }
+                    }
+                    .padding(20)
+                }
+            } else {
+                ContentUnavailableView(
+                    "Select a plan item",
+                    systemImage: "sidebar.right",
+                    description: Text("Inspect its dates, status, flexibility, and planning context.")
+                )
+            }
+        }
+        .frame(maxHeight: .infinity, alignment: .top)
+        .background(.background)
+    }
+
+    private func inspectorField(_ label: String, _ value: String) -> some View {
+        LabeledContent(label, value: value)
+            .font(TimeBiteTypography.font(.callout))
+    }
+
+    private func inspectorLabel(for row: PortfolioTimelineRow) -> String {
+        if row.isDecisionGate { return "DECISION GATE" }
+        if row.isRecurring { return "RECURRING BLOCK" }
+        return row.kind.rawValue.displayTitle.uppercased()
+    }
+}
+
+private extension String {
+    var displayTitle: String {
+        unicodeScalars.reduce(into: "") { result, scalar in
+            if CharacterSet.uppercaseLetters.contains(scalar), !result.isEmpty { result.append(" ") }
+            result.append(String(scalar))
+        }
+        .replacingOccurrences(of: "To", with: "-to-")
+        .capitalized
     }
 }
 
 #Preview {
-    PlanningTimelineView(viewModel: TimelineViewModel(repository: InMemoryPlanningRepository(store: .timelinePreview())))
-        .frame(width: 1200, height: 720)
+    PlanningTimelineView(
+        viewModel: PortfolioTimelineViewModel(
+            scale: .quarter,
+            anchorDate: PortfolioSeedData.makePortfolio().startDate
+        )
+    )
+    .frame(width: 1_440, height: 820)
 }

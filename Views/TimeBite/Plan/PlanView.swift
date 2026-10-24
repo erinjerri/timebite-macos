@@ -17,7 +17,7 @@ enum PlanSection: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .workspace: return "Studio"
-        case .personal: return "My plan"
+        case .personal: return "Plan"
         case .calendar: return "Calendar"
         case .timeline: return "Timeline"
         }
@@ -204,16 +204,23 @@ struct PlanningWorkbenchView: View {
                     Button {
                         viewModel.loadSamplePaste()
                     } label: {
-                        Label("Load sample", systemImage: "wand.and.stars")
+                        Label("Add pre-set plan", systemImage: "wand.and.stars")
                     }
                     .buttonStyle(.bordered)
 
                     Button {
                         isImportingImage = true
                     } label: {
-                        Label("Scan planner page", systemImage: "camera.viewfinder")
+                        Label("Scan", systemImage: "camera.viewfinder")
                     }
                     .buttonStyle(.borderedProminent)
+
+                    Button {
+                        viewModel.startNewActionPlan()
+                    } label: {
+                        Label("Add new action plan", systemImage: "plus.rectangle.on.rectangle")
+                    }
+                    .buttonStyle(.bordered)
 
                     Spacer()
 
@@ -256,7 +263,7 @@ struct PlanningWorkbenchView: View {
     private var captureCard: some View {
         PlanningSurfaceCard(title: "OCR capture", systemImage: "doc.viewfinder", tint: TimeBitePalette.teal) {
             VStack(alignment: .leading, spacing: 14) {
-                Text("Scan or import a planner page. TimeBite recognizes the handwriting, turns it into JSON, and pre-populates the intake list.")
+                Text("Scan or import an image. TimeBite recognizes the handwriting, turns it into JSON, and pre-populates the intake list.")
                     .font(TimeBiteTypography.font(.callout))
                     .lineSpacing(TimeBiteTypography.bodyLineSpacing)
                     .foregroundStyle(TimeBitePalette.secondaryText(for: colorScheme))
@@ -307,7 +314,7 @@ struct PlanningWorkbenchView: View {
                     ContentUnavailableView(
                         "No capture yet",
                         systemImage: "text.viewfinder",
-                        description: Text("Import an image of a paper planner page to auto-fill the project intake field.")
+                        description: Text("Import an image to auto-fill the project intake field.")
                     )
                 }
             }
@@ -862,6 +869,12 @@ final class PlanningWorkbenchViewModel: ObservableObject {
 
     func loadSamplePaste() {
         updateRawText(Self.samplePaste)
+    }
+
+    func startNewActionPlan() {
+        updateRawText("")
+        lastCapture = nil
+        errorMessage = nil
     }
 
     func applyCapture() {

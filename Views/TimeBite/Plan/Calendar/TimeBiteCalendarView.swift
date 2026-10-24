@@ -2,6 +2,7 @@ import SwiftUI
 
 struct TimeBiteCalendarView: View {
     @StateObject private var model: CalendarViewModel
+    @Environment(\.openURL) private var openURL
 
     init(previewStore: PlanningStore? = nil) {
         _model = StateObject(wrappedValue: CalendarViewModel(previewStore: previewStore))
@@ -58,6 +59,11 @@ struct TimeBiteCalendarView: View {
             .pickerStyle(.segmented)
             .labelsHidden()
             .frame(width: 170)
+            Button("Google Calendar") {
+                if let url = URL(string: "https://calendar.google.com/calendar/u/0/r/eventedit") {
+                    openURL(url)
+                }
+            }
         }
         .buttonStyle(.bordered)
         .padding(.horizontal, 20)
@@ -71,7 +77,12 @@ struct TimeBiteCalendarView: View {
             HStack {
                 Label("Show Apple Calendar events alongside TimeBite blocks", systemImage: "calendar.badge.plus")
                 Spacer()
-                Button("Connect Calendar") { Task { await model.loadExternalEvents(requestAccess: true) } }
+                Button("Connect Apple Calendar") { Task { await model.loadExternalEvents(requestAccess: true) } }
+                Button("Add to Google Calendar") {
+                    if let url = URL(string: "https://calendar.google.com/calendar/u/0/r/eventedit") {
+                        openURL(url)
+                    }
+                }
             }
             .padding(.horizontal, 16)
             .frame(height: 42)

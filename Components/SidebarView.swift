@@ -96,7 +96,7 @@ struct SidebarView: View {
     private func symbolName(for item: some CustomStringConvertible) -> String {
         switch item.description {
         case "Now": return "dot.radiowaves.left.and.right"
-        case "Actions": return "checklist"
+        case "Actions": return "checklist.checked"
         case "Goals": return "target"
         case "Plan": return "calendar"
         case "Track": return "chart.line.uptrend.xyaxis"
